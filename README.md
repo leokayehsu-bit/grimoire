@@ -70,7 +70,7 @@ Curses (`js/curses.js`) change what players can see, never the rules. They arriv
 
 Damned adds one more curse you have met; free séances can add 0–2 at random. `G.levels.cursesFor(level, difficulty, seed)` decides them from the séance seed, so every player agrees. The grimoire has a Curses page.
 
-**Losing:** when the spirit wins (wrath or offenses), everyone watches it claim them — candles die, its face flickers in red, lunges at the glass with a scream, the glass cracks, and the verdict bleeds in (`js/death.js`, `audio.death()`), before the end screen. A click skips it.
+**Losing:** when the spirit wins (wrath or offenses), everyone watches it claim them — candles die, its face flickers in red, lunges at the glass with a scream, the glass cracks, and the verdict bleeds in (`js/death.js`, `audio.death()`), before the end screen. A click skips it. Settings → Jumpscares (on by default, per device) turns it into a gentle fade to dark red with the verdict and no face, flash or scream.
 
 ## Relics
 

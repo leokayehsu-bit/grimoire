@@ -600,7 +600,7 @@
     S.loop = null;
     if (!dramatic) { finishRound(m, false); return; }
     S.ending = true;
-    G.death.play({ reason: m.reason, audio }).then(() => { S.ending = false; finishRound(m, true); });
+    G.death.play({ reason: m.reason, audio, gentle: load('jumpscares') === '0' }).then(() => { S.ending = false; finishRound(m, true); });
   }
 
   function finishRound(m, dramatic) {
@@ -744,6 +744,9 @@
       document.body.classList.toggle('cb', cb.checked);
       store('colorLabels', cb.checked ? '1' : '0');
     });
+    const scare = $('#opt-scare');
+    scare.checked = load('jumpscares') !== '0';
+    scare.addEventListener('change', () => store('jumpscares', scare.checked ? '1' : '0'));
     for (const kind of ['music', 'sfx']) {
       const range = $('#vol-' + kind);
       range.value = Math.round(audio.vol[kind] * 100);

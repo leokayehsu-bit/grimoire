@@ -30,15 +30,19 @@
     </svg>`;
 
   // Plays the sequence over everything; resolves when it ends or is skipped.
-  function play({ reason, audio }) {
+  // gentle (Settings → Jumpscares off): the room just fades to dark red and the verdict appears.
+  function play({ reason, audio, gentle = false }) {
     return new Promise((resolve) => {
       const root = el('div', 'death');
-      root.innerHTML = `<div class="dz-black"></div><div class="dz-red"></div>${FACE}${CRACKS}
+      if (gentle) root.classList.add('dz-gentle');
+      root.innerHTML = `<div class="dz-black"></div><div class="dz-red"></div>${gentle ? '' : FACE + CRACKS}
         <div class="dz-words"><h1>The spirit claims you</h1><p>${VERDICT[reason] || VERDICT.wrath}</p></div>
         <span class="dz-skip">click to continue</span>`;
       document.body.appendChild(root);
       document.body.classList.add('dying');
-      if (audio) audio.death();
+      if (audio) {
+        if (gentle) { audio.stopScore(0.8); audio.lose(); } else audio.death();
+      }
 
       let done = false;
       const timers = [];
@@ -52,6 +56,13 @@
         removeEventListener('keydown', finish);
         resolve();
       };
+      if (gentle) {
+        at(10, () => root.classList.add('dz-dark'));
+        at(700, () => root.classList.add('dz-verdict'));
+        at(1000, () => { root.addEventListener('click', finish); addEventListener('keydown', finish); });
+        at(3600, finish);
+        return;
+      }
       // Stages, driven by classes so the CSS owns the look. The hit at 0.9 s lines up with audio.death().
       at(10, () => root.classList.add('dz-dark'));        // candles die
       at(380, () => root.classList.add('dz-flicker'));    // red flicker, the face in the dark

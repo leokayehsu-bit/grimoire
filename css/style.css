@@ -1020,3 +1020,6 @@ body.dying .sound-ctl, body.dying .quit { visibility: hidden; }
 }
 .whisper.shriek { color: #ff6a5a; font-size: 1.35rem; letter-spacing: 0.08em; text-shadow: 0 0 14px rgba(255, 40, 30, 0.9); animation: shriek 0.18s 5; }
 @keyframes shriek { 50% { transform: translate(2px, -1px) skewX(-6deg); } }
+/* Jumpscares off: a slow fade to dark red and the verdict, nothing lunges. */
+.death.dz-gentle .dz-black { transition: opacity 0.9s ease-in; }
+.death.dz-gentle.dz-verdict .dz-red { opacity: 1; transition: opacity 1.4s; background: radial-gradient(ellipse at center, rgba(90, 0, 8, 0.6), #070002 75%); }
