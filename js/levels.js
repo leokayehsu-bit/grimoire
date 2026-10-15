@@ -127,18 +127,50 @@
   }
 
   // Progress lives in each browser: { cleared: { [n]: { restless, vengeful, damned } } }.
+  // Candles for a win: one for cleansing the table, one for no offenses, one for finishing with
+  // at least 40% of the time limit to spare.
+  const FAST = 0.6;
+  function rating(lv, difficulty, { time, strikes }) {
+    const limit = terms(lv, difficulty).time;
+    return 1 + (strikes === 0 ? 1 : 0) + (time <= limit * FAST ? 1 : 0);
+  }
+  const fastTime = (lv, difficulty) => Math.floor(terms(lv, difficulty).time * FAST);
+
+  // The better of two records: more candles, then the faster time.
+  const better = (a, b) => (!b || a.candles > b.candles || (a.candles === b.candles && a.time < b.time));
+
+  // Progress lives in each browser: { cleared: { [n]: { [difficulty]: true | { time, strikes, candles } } } }.
+  // `true` is a clear from before ratings existed.
   const progress = {
     open(p, n) { return n === 1 || !!(p.cleared[n - 1] && DIFF_ORDER.some((d) => p.cleared[n - 1][d])); },
     furthest(p) { let n = 1; while (n < LEVELS.length && progress.open(p, n + 1)) n++; return n; },
-    clear(p, n, difficulty) {
-      p.cleared[n] = Object.assign({}, p.cleared[n], { [difficulty]: true });
-      return p;
+    // Record a win; returns true if it beat the previous best.
+    clear(p, n, difficulty, rec) {
+      const prev = progress.best(p, n, difficulty);
+      const improved = !!rec && better(rec, prev);
+      const keep = improved ? { time: rec.time, strikes: rec.strikes, candles: rec.candles } : (p.cleared[n] && p.cleared[n][difficulty]) || true;
+      p.cleared[n] = Object.assign({}, p.cleared[n], { [difficulty]: keep });
+      return improved;
     },
+    best(p, n, difficulty) {
+      const r = p.cleared[n] && p.cleared[n][difficulty];
+      return r && typeof r === 'object' ? r : null;
+    },
+    candles(p, n, difficulty) {
+      const r = p.cleared[n] && p.cleared[n][difficulty];
+      return !r ? 0 : r === true ? 1 : r.candles;
+    },
+    total(p) {
+      let sum = 0;
+      for (const lv of LEVELS) for (const d of DIFF_ORDER) sum += progress.candles(p, lv.n, d);
+      return sum;
+    },
+    max: () => LEVELS.length * DIFF_ORDER.length * 3,
     empty: () => ({ cleared: {} }),
     all: () => ({ cleared: Object.fromEntries(LEVELS.map((lv) => [lv.n, { vengeful: true }])) }),
   };
 
   function get(n) { return LEVELS[n - 1] || null; }
 
-  G.levels = { CHAPTERS, LEVELS, INTRO, introLevel, DIFFICULTY, DIFF_ORDER, book, freeLevel, terms, plan, progress, get, round15 };
+  G.levels = { CHAPTERS, LEVELS, INTRO, introLevel, DIFFICULTY, DIFF_ORDER, book, freeLevel, terms, plan, progress, get, round15, rating, fastTime };
 })(globalThis.GR = globalThis.GR || {});

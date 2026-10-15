@@ -15,6 +15,12 @@
   const $ = (s) => document.querySelector(s);
 
   const params = new URLSearchParams(location.search);
+  // This copy's release stamp (from the ?v= that tools/publish.sh puts on every script), 'dev' locally.
+  const BUILD = (() => {
+    const tag = document.querySelector('script[src*="js/main.js"]');
+    const m = tag && tag.src.match(/[?&]v=(\w+)/);
+    return m ? m[1] : 'dev';
+  })();
   const LOCAL = params.has('local');
   const audio = new G.Sound();
 
@@ -24,7 +30,7 @@
     players: [], settings: { edition: 1, difficulty: 'vengeful', level: 1, free: null, upTo: 1 },
     current: null, role: null, game: null, view: null, loop: null, joinTimer: null,
   };
-  window.grimoire = { S, answers: () => S.game && S.game.answers() };
+  window.grimoire = { S, answers: () => S.game && S.game.answers(), build: () => BUILD, handle: (m) => handle(m) };
 
   const store = (k, v) => { try { localStorage.setItem('grimoire.' + k, v); } catch (e) { /* private mode */ } };
   const load = (k) => { try { return localStorage.getItem('grimoire.' + k); } catch (e) { return null; } };
@@ -41,11 +47,14 @@
   }
   function saveProgress(p) { if (!params.has('unlockall')) store('progress.v1', JSON.stringify(p)); }
   const fmt = (sec) => G.views.fmt(sec);
+  const candleRow = (n, cls = '') => `<span class="candles ${cls}" aria-label="${n} of 3 candles">${[1, 2, 3].map((k) => `<i class="${k <= n ? 'lit' : ''}"></i>`).join('')}</span>`;
+  const DLABEL = (d) => G.levels.DIFFICULTY[d].label;
 
   function show(name) {
     document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('hidden', s.id !== 'screen-' + name));
     $('#btn-quit').classList.toggle('hidden', name !== 'medium' && name !== 'scholar');
     S.screen = name;
+    if (name === 'home') renderHomeProgress();
     if (name !== 'medium' && name !== 'scholar') document.body.style.setProperty('--wrath', 0);
     window.scrollTo(0, 0);
   }
@@ -145,7 +154,7 @@
     S.me = { id: net.id, name };
     S.isHost = true;
     S.hostId = net.id;
-    S.players = [{ id: net.id, name, role: null }];
+    S.players = [{ id: net.id, name, role: null, build: BUILD }];
     S.current = null;
     S.settings = freshSettings();
     show('lobby');
@@ -173,7 +182,7 @@
     S.isHost = false;
     S.hostId = null;
     S.code = code;
-    net.send({ t: 'join', name });
+    net.send({ t: 'join', name, build: BUILD });
     S.joinTimer = setTimeout(() => {
       if (!S.hostId) { leave(); homeMsg('No answer from that room.'); }
     }, 6000);
@@ -218,14 +227,14 @@
   }
 
   function broadcastLobby() {
-    const m = { t: 'lobby', players: S.players, settings: S.settings, hostId: S.me.id, code: S.code };
+    const m = { t: 'lobby', players: S.players, settings: S.settings, hostId: S.me.id, code: S.code, build: BUILD };
     S.net.send(m);
     gotLobby(m);
   }
 
   function hostJoin(m) {
     if (S.players.some((p) => p.id === m.from)) return;
-    const p = { id: m.from, name: String(m.name || 'Guest').slice(0, 16), role: S.current ? 'scholar' : null };
+    const p = { id: m.from, name: String(m.name || 'Guest').slice(0, 16), role: S.current ? 'scholar' : null, build: String(m.build || 'unknown') };
     S.players.push(p);
     broadcastLobby();
     // Arrived mid-séance: hand them the book.
@@ -260,8 +269,10 @@
     S.settings = m.settings;
     S.hostId = m.hostId;
     S.code = m.code || S.code;
+    S.hostBuild = m.build;
     if (S.screen === 'home') { busy(false); homeMsg(''); show('lobby'); }
     renderLobby();
+    renderVersionWarn(m.build);
   }
 
   // ---- Lobby -------------------------------------------------------------------
@@ -279,6 +290,8 @@
 
   function startCheck() {
     if (S.solo) return '';
+    const behind = S.players.find((p) => p.build && p.build !== BUILD);
+    if (behind) return `${behind.name} is on a different version of Grimoire. ${olderOf(behind.build) === 'them' ? 'Ask them to reload the page.' : 'Reload this page to update, then reopen the room.'}`;
     const medium = S.players.find((p) => p.role === 'medium');
     const scholars = S.players.filter((p) => p.role === 'scholar');
     if (!medium) return 'Someone must sit as the Medium.';
@@ -327,7 +340,8 @@
     for (const p of S.players) {
       const li = el('li');
       const seat = p.role === 'medium' ? '🕯️ Medium' : p.role === 'scholar' ? '📖 Scholar' : 'Choosing…';
-      li.innerHTML = `<span class="pname">${esc(p.name)}${p.id === S.me.id ? ' <i>(you)</i>' : ''}${p.id === S.hostId ? ' <span class="host">host</span>' : ''}</span><span class="seat ${p.role || 'none'}">${seat}</span>`;
+      const stale = S.isHost && p.build && p.build !== BUILD ? ' <span class="stale">different version</span>' : '';
+      li.innerHTML = `<span class="pname">${esc(p.name)}${p.id === S.me.id ? ' <i>(you)</i>' : ''}${p.id === S.hostId ? ' <span class="host">host</span>' : ''}${stale}</span><span class="seat ${p.role || 'none'}">${seat}</span>`;
       list.appendChild(li);
     }
 
@@ -365,6 +379,28 @@
     }
   }
 
+  // Release stamps are YYYYMMDDHHMM, so the smaller one is older. Returns who should reload.
+  function olderOf(other) {
+    if (other === BUILD) return null;
+    if (!/^\d+$/.test(other) || !/^\d+$/.test(BUILD)) return 'them';
+    return +other < +BUILD ? 'them' : 'me';
+  }
+
+  function renderVersionWarn(hostBuild) {
+    const box = $('#version-warn');
+    const who = S.isHost || !hostBuild ? null : olderOf(hostBuild);
+    box.classList.toggle('hidden', !who);
+    if (!who) return;
+    box.innerHTML = who === 'me'
+      ? 'Your copy of Grimoire is older than the host’s, so your rules would not match. <button class="btn small" type="button">Reload to update</button>'
+      : 'The host is on an older version of Grimoire. Ask them to reload the page, then rejoin.';
+    const b = box.querySelector('button');
+    if (b) b.addEventListener('click', async () => {
+      try { const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch (e) { /* offline */ }
+      location.href = inviteLink();
+    });
+  }
+
   function fillSelect(sel, values, current, label) {
     sel.innerHTML = '';
     for (const v of values) {
@@ -396,7 +432,16 @@
         <div><dt>Time limit</dt><dd>${fmt(t.time)}</dd></div>
         <div><dt>Offenses allowed</dt><dd>${t.offenses}</dd></div>
         <div><dt>Difficulty</dt><dd>${d.label}${t.smudged ? ' · smudged ink' : ''}</dd></div>
-      </dl>`;
+      </dl>
+      ${lv.free ? '' : bestLine(lv, st.difficulty)}`;
+  }
+
+  // Three-candle target for a level at a difficulty, and this browser's best there.
+  function bestLine(lv, difficulty) {
+    const best = P.best(getProgress(), lv.n, difficulty);
+    const n = P.candles(getProgress(), lv.n, difficulty);
+    return `<p class="lc-best">${candleRow(n)} <span>${best ? `Your best: ${fmt(best.time)}${best.strikes ? `, ${best.strikes} offense${best.strikes === 1 ? '' : 's'}` : ', no offenses'}` : n ? 'Cleared' : 'Not yet cleared'}
+      · three candles for no offenses and under ${fmt(G.levels.fastTime(lv, difficulty))}</span></p>`;
   }
 
   // Every chapter and level; locked levels can't be picked yet.
@@ -407,10 +452,16 @@
     list.querySelector('.ll-close').addEventListener('click', () => list.classList.add('hidden'));
     G.levels.CHAPTERS.forEach((ch, c) => {
       const sec = el('section', 'll-chapter');
-      sec.innerHTML = `<h3>${ch.name}</h3><p class="note">${ch.blurb}</p>`;
+      const inChapter = G.levels.LEVELS.filter((x) => x.chapter === c);
+      const got = inChapter.reduce((sum, x) => sum + G.levels.DIFF_ORDER.reduce((a, d) => a + P.candles(prog, x.n, d), 0), 0);
+      sec.innerHTML = `<h3>${ch.name} <small class="ll-total">${got} / ${inChapter.length * 9} 🕯</small></h3><p class="note">${ch.blurb}</p>`;
       for (const lv of G.levels.LEVELS.filter((x) => x.chapter === c)) {
         const open = P.open(prog, lv.n);
-        const marks = G.levels.DIFF_ORDER.map((d) => `<i class="${prog.cleared[lv.n] && prog.cleared[lv.n][d] ? 'on' : ''}" title="${G.levels.DIFFICULTY[d].label}">${G.levels.DIFFICULTY[d].label[0]}</i>`).join('');
+        const marks = G.levels.DIFF_ORDER.map((d) => {
+          const n = P.candles(prog, lv.n, d), best = P.best(prog, lv.n, d);
+          const tip = n ? `${DLABEL(d)}: ${n} of 3 candles${best ? ', best ' + fmt(best.time) : ''}` : `${DLABEL(d)}: not cleared`;
+          return `<i class="${n ? 'on' : ''}" title="${tip}">${DLABEL(d)[0]}${n ? `<sup>${n}</sup>` : ''}</i>`;
+        }).join('');
         const b = el('button', 'll-row' + (open ? '' : ' locked') + (!S.settings.free && S.settings.level === lv.n ? ' current' : ''));
         b.type = 'button';
         b.disabled = !open;
@@ -507,11 +558,24 @@
     $('#end-text').textContent = text;
     const lv = m.level ? G.levels.get(m.level) : null;
     $('#end-level').textContent = m.levelName ? `${lv ? 'Level ' + lv.n + ' · ' : ''}${m.levelName} · ${G.levels.DIFFICULTY[m.difficulty].label}` : '';
-    let unlock = '';
+    let unlock = '', rating = '';
     if (m.result === 'win' && lv) {
       const before = getProgress();
       const wasOpen = P.open(before, lv.n + 1);
-      saveProgress(P.clear(before, lv.n, m.difficulty));
+      const prev = P.best(before, lv.n, m.difficulty);
+      const candles = G.levels.rating(lv, m.difficulty, { time: m.time, strikes: m.strikes });
+      const improved = P.clear(before, lv.n, m.difficulty, { time: m.time, strikes: m.strikes, candles });
+      saveProgress(before);
+      const fast = G.levels.fastTime(lv, m.difficulty);
+      const best = P.best(before, lv.n, m.difficulty);
+      rating = `${candleRow(candles, 'big')}
+        <ul class="criteria">
+          <li class="ok">Cleansed the table</li>
+          <li class="${m.strikes === 0 ? 'ok' : ''}">No offenses</li>
+          <li class="${m.time <= fast ? 'ok' : ''}">Under ${fmt(fast)}</li>
+        </ul>
+        <p class="best-line">${improved && prev ? `New best on ${DLABEL(m.difficulty)}!` : improved ? `First clear on ${DLABEL(m.difficulty)}.` :
+          `Your best on ${DLABEL(m.difficulty)}: ${best.candles} candle${best.candles === 1 ? '' : 's'} in ${fmt(best.time)}.`}</p>`;
       const next = G.levels.get(lv.n + 1);
       if (next && !wasOpen) {
         unlock = `Level ${next.n} unlocked: ${next.name}.` + (next.intro ? ` A new page appears in the grimoire — ${G.relics[next.intro].title}.` : '');
@@ -519,6 +583,7 @@
       if (S.isHost) S.settings = Object.assign({}, S.settings, { upTo: P.furthest(getProgress()) });
     }
     $('#end-unlock').textContent = unlock;
+    $('#end-rating').innerHTML = rating;
     S.nextLevel = m.result === 'win' && lv && G.levels.get(lv.n + 1) ? lv.n + 1 : 0;
     $('#btn-next').classList.toggle('hidden', !S.isHost || !S.nextLevel);
     const stats = $('#end-stats');
@@ -530,6 +595,7 @@
         <div><dt>Edition</dt><dd>${m.edition}</dd></div>`;
     }
     $('#btn-again').classList.toggle('hidden', !S.isHost);
+    $('#btn-end-leave').textContent = S.solo ? '← Main menu' : 'Leave room';
     $('#end-wait').classList.toggle('hidden', S.isHost);
     show('end');
   }
@@ -575,8 +641,53 @@
     if (!params.has('noauto')) (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(() => window.print(), 500));
   }
 
+  // Installable app + offline play. The worker only runs on the real site (or with ?sw), so local
+  // development never serves stale files.
+  function setupApp() {
+    const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if ('serviceWorker' in navigator && (!local || params.has('sw'))) navigator.serviceWorker.register('sw.js').catch(() => {});
+    let deferred = null;
+    const btn = $('#btn-install');
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; btn.classList.remove('hidden'); $('#install-hint').textContent = ''; });
+    btn.addEventListener('click', async () => {
+      if (!deferred) return;
+      deferred.prompt();
+      await deferred.userChoice;
+      deferred = null;
+      btn.classList.add('hidden');
+    });
+    window.addEventListener('appinstalled', () => btn.classList.add('hidden'));
+    const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    const ua = navigator.userAgent;
+    const ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    const safari = /Safari/.test(ua) && !/Chrome|Chromium|CriOS|Edg|Firefox|FxiOS/.test(ua);
+    if (!installed) {
+      if (ios) $('#install-hint').textContent = 'To install: tap Share, then “Add to Home Screen”.';
+      else if (safari) $('#install-hint').textContent = 'To install: in Safari, choose File → Add to Dock.';
+    }
+    const online = () => {
+      const off = !navigator.onLine;
+      $('#offline-note').classList.toggle('hidden', !off);
+      $('#btn-create').disabled = off;
+      $('#btn-join').disabled = off;
+    };
+    window.addEventListener('online', online);
+    window.addEventListener('offline', online);
+    online();
+  }
+
+  function renderHomeProgress() {
+    const p = getProgress();
+    const total = P.total(p);
+    $('#home-progress').innerHTML = total
+      ? `Level ${P.furthest(p)} of ${G.levels.LEVELS.length} reached · <b>${total}</b> of ${P.max()} candles`
+      : '';
+  }
+
   function init() {
     if (params.has('print')) { printMode(); return; }
+    renderHomeProgress();
+    setupApp();
     $('#in-name').value = load('name') || '';
     const room = (params.get('room') || '').toUpperCase();
     if (room) {

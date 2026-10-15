@@ -6,9 +6,17 @@ set -e
 cd "$(dirname "$0")/.."
 msg=${1:-"Update Grimoire"}
 
-node tests/check.js 300 5000 | tail -1
+# Never publish a build that fails the solver test.
+if ! out=$(node tests/check.js 300 6000 2>&1); then
+  echo "$out" | tail -40
+  echo "Tests failed — nothing was published."
+  exit 1
+fi
+echo "$out" | tail -1
 v=$(date +%Y%m%d%H%M)
 sed -i '' -E "s#((src|href)=\"(js|css)/[^\"?]+)(\?v=[0-9]+)?\"#\1?v=$v\"#g" index.html
+# A new worker version makes installed apps pick up this release.
+sed -i '' -E "s/^const VERSION = '[^']*';/const VERSION = '$v';/" sw.js
 
 git add -A
 git commit -q -m "$msg"

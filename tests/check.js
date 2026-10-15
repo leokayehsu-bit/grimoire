@@ -44,8 +44,19 @@ for (const lv of LEVELS) {
   const P = GR.levels.progress;
   let p = P.empty();
   if (!P.open(p, 1) || P.open(p, 2) || P.furthest(p) !== 1) fail('fresh progress should open only level 1');
-  p = P.clear(p, 1, 'damned');
+  P.clear(p, 1, 'damned', { time: 100, strikes: 1, candles: 1 });
   if (!P.open(p, 2) || P.open(p, 3) || P.furthest(p) !== 2) fail('clearing level 1 should open level 2 only');
+  // Best records: more candles wins, then the faster time; a worse run never replaces a better one.
+  if (P.clear(p, 1, 'damned', { time: 90, strikes: 1, candles: 1 }) !== true || P.best(p, 1, 'damned').time !== 90) fail('a faster run should be the new best');
+  if (P.clear(p, 1, 'damned', { time: 50, strikes: 2, candles: 1 }) !== true) fail('an even faster run should be the new best');
+  if (P.clear(p, 1, 'damned', { time: 140, strikes: 0, candles: 2 }) !== true || P.candles(p, 1, 'damned') !== 2) fail('more candles should beat a faster time');
+  if (P.clear(p, 1, 'damned', { time: 30, strikes: 1, candles: 1 }) !== false || P.candles(p, 1, 'damned') !== 2) fail('fewer candles must not replace the best');
+  const legacy = { cleared: { 1: { vengeful: true } } };
+  if (P.candles(legacy, 1, 'vengeful') !== 1 || !P.open(legacy, 2)) fail('old saves (true) should count as one candle');
+  if (P.total(legacy) !== 1 || P.max() !== LEVELS.length * 9) fail('candle totals are wrong');
+  const lv = LEVELS[0], lim = GR.levels.terms(lv, 'vengeful').time;
+  const R = (time, strikes) => GR.levels.rating(lv, 'vengeful', { time, strikes });
+  if (R(lim * 0.6, 0) !== 3 || R(lim * 0.6 + 1, 0) !== 2 || R(10, 1) !== 2 || R(lim, 2) !== 1) fail('candle ratings are wrong');
 }
 // Epitaphs must stay distinguishable with one word changed.
 {

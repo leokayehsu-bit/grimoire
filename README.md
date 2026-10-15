@@ -11,6 +11,12 @@ A co-op "one sees, the others read" party game. The **Medium** sits at a séance
 
 **One screen:** “Play on one screen” on the main menu skips rooms entirely. This computer is the Medium, and the Scholars read a **printed grimoire**. The print card prints the book for the chosen edition (pages you've unlocked, or every page), in the smudged version when Damned is picked; a level that adds a page offers to print just that page. The printable book is a plain link: `?print&edition=N&upto=L` (or `&all`, or `&only=<relic>`, plus `&smudged`; `&noauto` skips the print dialog). “Read the grimoire” has a print button too.
 
+**Ratings:** every win earns 1–3 candles (cleansed; no offenses; under 60% of the time limit). Each browser keeps its best candles and time per level and difficulty (in `grimoire.progress.v1`), shown on the end screen, the level card, the level list (with chapter totals) and the main menu.
+
+**App + offline:** the site is an installable web app (`manifest.webmanifest`, `sw.js`, icons from `tools/icons.sh`). The service worker fetches the page network-first (so online players always run the latest release) and serves the `?v=`-stamped scripts from its cache, so one-screen play, the grimoire and printing work offline. It is skipped on localhost unless you add `?sw`. `tools/publish.sh` stamps `sw.js` so installed apps update.
+
+**Crossplay:** the app and the website are the same build. Every player's release stamp travels with them into a room; if anyone's differs from the host's, the lobby says who must reload and the séance can't start, so nobody plays with different rules.
+
 To play with friends elsewhere, the files need to be hosted somewhere public (GitHub Pages and itch.io HTML games are both free).
 
 ## Layout
