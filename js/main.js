@@ -23,6 +23,7 @@
   })();
   const LOCAL = params.has('local');
   const audio = new G.Sound();
+  G.audio = audio;
 
   const S = {
     net: null, screen: 'home',
@@ -55,6 +56,7 @@
     $('#btn-quit').classList.toggle('hidden', name !== 'medium' && name !== 'scholar');
     S.screen = name;
     if (name === 'home') renderHomeProgress();
+    if (name === 'home' || name === 'lobby' || name === 'study') audio.menuMusic(true);
     if (name !== 'medium' && name !== 'scholar') document.body.style.setProperty('--wrath', 0);
     window.scrollTo(0, 0);
   }
@@ -219,7 +221,7 @@
       case 'leave': if (S.isHost) peerLeft(m.from); break;
       case 'lobby': gotLobby(m); break;
       case 'start': startRound(m); break;
-      case 'status': if (S.role === 'scholar' && S.view) S.view.status(m); break;
+      case 'status': if (S.role === 'scholar' && S.view) scholarStatus(m); break;
       case 'end': endRound(m); break;
       case 'toLobby': toLobby(); break;
       case 'closed': if (!S.isHost && m.from === S.hostId) backHome('The host closed the room.'); break;
@@ -491,7 +493,10 @@
     stopRound();
     S.current = { t: 'start', seed: m.seed, edition: m.edition, difficulty: m.difficulty, level: m.level, free: m.free, mediumId: m.mediumId };
     S.role = m.mediumId === S.me.id ? 'medium' : 'scholar';
+    S.lastStatus = null;
+    audio.resetIntensity();
     audio.startAmbience();
+    audio.startSeance();
 
     if (S.role === 'medium') {
       const game = new G.Game(m);
@@ -516,7 +521,7 @@
         game.tick(dt);
         if (S.game !== game) return; // the séance ended during this tick
         S.view.update();
-        audio.setWrath(game.wrath);
+        audio.setIntensity({ wrath: game.wrath, strikes: game.strikes, remaining: game.remaining });
         acc += dt;
         if (acc >= 0.5) { acc = 0; sendStatus(); }
       }, 100);
@@ -530,6 +535,20 @@
       });
       show('scholar');
     }
+  }
+
+  // Scholars hear the séance through the Medium's status: the score follows the wrath, and they hear
+  // each offense and each cleansing as it happens.
+  function scholarStatus(m) {
+    S.view.status(m);
+    audio.setIntensity({ wrath: m.wrath, strikes: m.strikes, remaining: m.remaining });
+    const last = S.lastStatus;
+    if (last) {
+      if (m.strikes > last.strikes) audio.strike();
+      const done = (s) => s.relics.filter((r) => r.solved).length;
+      if (done(m) > done(last)) audio.solve();
+    }
+    S.lastStatus = m;
   }
 
   function stopRound() {
@@ -676,6 +695,25 @@
     online();
   }
 
+  // Music and effects volume, remembered per browser.
+  function setupSoundControls() {
+    const btn = $('#btn-sound'), pop = $('#sound-pop');
+    const icon = () => { btn.textContent = audio.vol.music + audio.vol.sfx === 0 ? '🔇' : '🔊'; };
+    for (const kind of ['music', 'sfx']) {
+      const range = $('#vol-' + kind);
+      range.value = Math.round(audio.vol[kind] * 100);
+      range.addEventListener('input', () => {
+        audio.unlock();
+        audio.setVolume(kind, range.value / 100);
+        icon();
+      });
+    }
+    $('#vol-sfx').addEventListener('change', () => audio.solve());
+    btn.addEventListener('click', (e) => { e.stopPropagation(); pop.classList.toggle('hidden'); });
+    document.addEventListener('click', (e) => { if (!pop.contains(e.target) && e.target !== btn) pop.classList.add('hidden'); });
+    icon();
+  }
+
   function renderHomeProgress() {
     const p = getProgress();
     const total = P.total(p);
@@ -751,7 +789,11 @@
       toLobby();
       broadcastLobby();
     });
-    document.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+    document.addEventListener('pointerdown', () => {
+      audio.unlock();
+      if (S.screen === 'home' || S.screen === 'lobby' || S.screen === 'study') audio.menuMusic(true);
+    }, { once: true });
+    setupSoundControls();
   }
 
   init();

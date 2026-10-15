@@ -15,6 +15,8 @@ A co-op "one sees, the others read" party game. The **Medium** sits at a séance
 
 **App + offline:** the site is an installable web app (`manifest.webmanifest`, `sw.js`, icons from `tools/icons.sh`). The service worker fetches the page network-first (so online players always run the latest release) and serves the `?v=`-stamped scripts from its cache, so one-screen play, the grimoire and printing work offline. It is skipped on localhost unless you add `?sw`. `tools/publish.sh` stamps `sw.js` so installed apps update.
 
+**Sound:** everything is synthesised in `js/audio.js` (no audio files). Effects and music run through separate buses into a shared stone-room reverb. The séance score is adaptive: `setIntensity({ wrath, strikes, remaining })` drives a drone, organ chords and a music box when calm, then a quickening heartbeat, trembling strings, a choir and a ticking clock as the wrath rises, with booms in the final 15 seconds and stingers at 50/75/90% wrath. Scholars hear the score and every offense or cleansing through the Medium's status updates. Menus get a quiet music-box version. Music and effects volumes (bottom-left 🔊) are saved per browser.
+
 **Crossplay:** the app and the website are the same build. Every player's release stamp travels with them into a room; if anyone's differs from the host's, the lobby says who must reload and the séance can't start, so nobody plays with different rules.
 
 To play with friends elsewhere, the files need to be hosted somewhere public (GitHub Pages and itch.io HTML games are both free).

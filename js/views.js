@@ -133,7 +133,7 @@
       const b = el('button', 'tab' + (p.fresh ? ' fresh' : ''), p.title);
       b.type = 'button';
       if (p.fresh) b.appendChild(el('span', 'new-tag', 'New'));
-      b.addEventListener('click', () => open(p.id));
+      b.addEventListener('click', () => { if (G.audio) G.audio.pageTurn(); open(p.id); });
       tabs.appendChild(b);
       tabBtns[p.id] = b;
     }
@@ -180,7 +180,7 @@
         for (const r of s.relics) {
           const b = el('button', 'chip' + (r.solved ? ' done' : '') + (r.needy ? ' needy' : ''), (r.solved ? '✓ ' : '') + r.title);
           b.type = 'button';
-          b.addEventListener('click', () => open(r.id));
+          b.addEventListener('click', () => { if (G.audio) G.audio.pageTurn(); open(r.id); });
           onTable.appendChild(b);
         }
       },
