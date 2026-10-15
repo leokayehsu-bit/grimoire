@@ -5,9 +5,10 @@
   const { makeRng, hash } = G.util;
 
   const DIFFICULTY = {
-    restless: { label: 'Restless', relics: 3, time: 300, blurb: '3 relics · 5:00' },
-    vengeful: { label: 'Vengeful', relics: 4, time: 300, blurb: '4 relics · 5:00' },
-    damned: { label: 'Damned', relics: 4, time: 210, blurb: '4 relics · 3:30' },
+    restless: { label: 'Restless', relics: 3, needy: 0, time: 300, blurb: '3 relics · 5:00' },
+    vengeful: { label: 'Vengeful', relics: 4, needy: 1, time: 300, blurb: '4 relics + the doll · 5:00' },
+    // Damned also smudges one passage per relic page in the Scholars' copy (see G.rules.page).
+    damned: { label: 'Damned', relics: 4, needy: 1, time: 210, smudged: true, blurb: '4 relics + the doll · 3:30 · smudged ink' },
   };
 
   class Game {
@@ -18,11 +19,12 @@
       this.diff = DIFFICULTY[difficulty] || DIFFICULTY.restless;
       this.rules = G.rules.build(edition);
       this.ctx = G.seance.generate(rng);
-      const ids = rng.sample(G.RELIC_ORDER, this.diff.relics);
+      // Needy relics (the doll) sit on the table too, but never count toward the win.
+      const ids = rng.sample(G.RELIC_ORDER, this.diff.relics).concat(G.NEEDY_ORDER.slice(0, this.diff.needy || 0));
       this.relics = ids.map((id) => {
         const def = G.relics[id];
         const state = def.generate(makeRng((seed ^ hash(id)) >>> 0), this.ctx, this.rules[id]);
-        return { id, def, title: def.title, state, solved: false };
+        return { id, def, title: def.title, needy: !!def.needy, state, solved: false };
       });
       this.duration = this.diff.time;
       this.elapsed = 0;
@@ -45,21 +47,35 @@
       if (this.result) return;
       this.realTime += dt;
       this.elapsed += dt * this.rate;
-      if (this.elapsed >= this.duration) this.end('lose', 'wrath');
+      if (this.elapsed >= this.duration) { this.end('lose', 'wrath'); return; }
+      for (const r of this.relics) {
+        if (!r.needy || this.result) continue;
+        const ev = r.def.tick(r.state, dt);
+        if (ev === 'whisper') this.emit('whisper', r);
+        else if (ev === 'timeout') this.offend(r);
+      }
     }
+
+    offend(r) {
+      this.strikes++;
+      this.emit('strike', r);
+      if (this.strikes >= this.maxStrikes) this.end('lose', 'strikes');
+    }
+
+    get cleansable() { return this.relics.filter((r) => !r.needy); }
 
     attempt(index, input) {
       const r = this.relics[index];
       if (this.result || !r || r.solved) return 'ignored';
       const res = r.def.attempt(r.state, input, this.ctx, this.rules[r.id], this.strikes);
       if (res === 'strike') {
-        this.strikes++;
-        this.emit('strike', r);
-        if (this.strikes >= this.maxStrikes) this.end('lose', 'strikes');
+        this.offend(r);
+      } else if (res === 'soothed') {
+        this.emit('soothe', r);
       } else if (res === 'solved') {
         r.solved = true;
         this.emit('solve', r);
-        if (this.relics.every((x) => x.solved)) this.end('win', 'cleansed');
+        if (this.cleansable.every((x) => x.solved)) this.end('win', 'cleansed');
       }
       return res;
     }
@@ -71,8 +87,8 @@
         result, reason,
         time: Math.round(this.realTime),
         strikes: this.strikes,
-        solved: this.relics.filter((r) => r.solved).length,
-        total: this.relics.length,
+        solved: this.cleansable.filter((r) => r.solved).length,
+        total: this.cleansable.length,
         edition: this.edition,
       });
     }
@@ -83,7 +99,7 @@
         remaining: this.remaining,
         strikes: this.strikes,
         maxStrikes: this.maxStrikes,
-        relics: this.relics.map((r) => ({ id: r.id, title: r.title, solved: r.solved })),
+        relics: this.relics.map((r) => ({ id: r.id, title: r.title, solved: r.solved, needy: r.needy })),
       };
     }
 

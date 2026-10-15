@@ -7,6 +7,7 @@
   const FIGURES = ['BAT', 'ROSE', 'SKULL', 'HOURGLASS'];
   const GLYPH = { BAT: '🦇', ROSE: '🌹', SKULL: '💀', HOURGLASS: '⏳' };
   const ROW_LABEL = ['No offenses', 'One offense', 'Two offenses'];
+  const cell = (f) => `${GLYPH[f]} ${title(f)}`;
 
   // A translation row: row[i] is what to press when FIGURES[i] plays. At most one figure maps to itself.
   function makeRow(rng) {
@@ -119,12 +120,23 @@
       return { destroy: () => { dead = true; clearTimeout(timer); } };
     },
 
-    manual(rules) {
+    smudgeables(rules) {
+      const out = [];
+      for (const name of ['lullaby', 'dirge']) {
+        rules[name].forEach((row, r) => row.forEach((f, i) => out.push({
+          key: `${name}.${r}.${i}`, where: `the ${title(name)}, ${ROW_LABEL[r]} row, under the ${title(FIGURES[i])}`, value: cell(f),
+        })));
+      }
+      return out;
+    },
+
+    manual(rules, smudge) {
+      const ink = G.util.inker(smudge);
       const table = (name, rows) => {
-        let h = `<h3>The ${name}</h3><table class="grid"><thead><tr><th>When it plays…</th>` +
+        let h = `<h3>The ${title(name)}</h3><table class="grid"><thead><tr><th>When it plays…</th>` +
           FIGURES.map((f) => `<th>${GLYPH[f]} ${title(f)}</th>`).join('') + '</tr></thead><tbody>';
         rows.forEach((row, r) => {
-          h += `<tr><td>${ROW_LABEL[r]}</td>` + row.map((f) => `<td>${GLYPH[f]} ${title(f)}</td>`).join('') + '</tr>';
+          h += `<tr><td>${ROW_LABEL[r]}</td>` + row.map((f, i) => `<td>${ink(`${name}.${r}.${i}`, cell(f))}</td>`).join('') + '</tr>';
         });
         return h + '</tbody></table>';
       };
@@ -133,7 +145,7 @@
         translating every note with the tables below.</p>
         <p class="lead">If <strong>${esc(rules.cond.text)}</strong>, use the Lullaby. Otherwise, use the Dirge.
         Read the row for the number of offenses made so far, <em>across the whole séance</em>. After an offense, the box plays the melody again.</p>` +
-        table('Lullaby', rules.lullaby) + table('Dirge', rules.dirge) +
+        table('lullaby', rules.lullaby) + table('dirge', rules.dirge) +
         '<p class="note">The Medium may wind the box to hear the melody again. Winding starts their answer over.</p>';
     },
   };

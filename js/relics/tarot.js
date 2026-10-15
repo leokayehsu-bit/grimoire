@@ -79,13 +79,18 @@
       root.appendChild(el('p', 'relic-tip', 'Touch a card to burn it.'));
     },
 
-    manual(rules) {
+    smudgeables(rules) {
+      return CARDS.map((c) => ({ key: c.name, where: `the value of ${title(c.name)}`, value: String(rules.values[c.name]) }));
+    },
+
+    manual(rules, smudge) {
+      const ink = G.util.inker(smudge);
       const result = [0, 1, 2].map((r) => `<li>${r} — burn the <b>${POS[rules.order[r]]}</b> card</li>`).join('');
       const half = Math.ceil(CARDS.length / 2);
       const rowsHtml = CARDS.slice(0, half).map((c, k) => {
         const d = CARDS[k + half];
-        return `<tr><td>${c.glyph} ${title(c.name)}</td><td class="num">${rules.values[c.name]}</td>` +
-          (d ? `<td>${d.glyph} ${title(d.name)}</td><td class="num">${rules.values[d.name]}</td>` : '<td></td><td></td>') + '</tr>';
+        return `<tr><td>${c.glyph} ${title(c.name)}</td><td class="num">${ink(c.name, rules.values[c.name])}</td>` +
+          (d ? `<td>${d.glyph} ${title(d.name)}</td><td class="num">${ink(d.name, rules.values[d.name])}</td>` : '<td></td><td></td>') + '</tr>';
       }).join('');
       return `<p class="lead">Three cards lie face up. A card that appears upside down is <em>reversed</em>. Burn exactly one.</p>
         <ol class="rules">

@@ -156,7 +156,14 @@
       return { destroy: () => stop(false) };
     },
 
-    manual(rules) {
+    smudgeables(rules) {
+      return rules.words.flatMap((w) => ['dusk', 'dawn'].map((col) => ({
+        key: `${w}.${col}`, where: `the ${col === 'dusk' ? 'Dusk' : 'Dawn'} answer for ${w}`, value: label(rules.table[w][col]),
+      })));
+    },
+
+    manual(rules, smudge) {
+      const ink = G.util.inker(smudge);
       let html = `<p class="lead">The planchette moves on its own. It spells one word letter by letter, rests beneath the moon, then spells it again.
         It lifts briefly between letters, so a doubled letter is touched twice.</p>
         <p class="lead">If <strong>${esc(rules.cond.text)}</strong>, answer from the <b>Dusk</b> column. Otherwise, answer from the <b>Dawn</b> column.
@@ -164,7 +171,7 @@
         <table class="grid"><thead><tr><th>The word</th><th>Dusk</th><th>Dawn</th></tr></thead><tbody>`;
       for (const w of rules.words) {
         const r = rules.table[w];
-        html += `<tr><td class="word">${w}</td><td>${label(r.dusk)}</td><td>${label(r.dawn)}</td></tr>`;
+        html += `<tr><td class="word">${w}</td><td>${ink(`${w}.dusk`, label(r.dusk))}</td><td>${ink(`${w}.dawn`, label(r.dawn))}</td></tr>`;
       }
       html += '</tbody></table><p class="note">Some words look alike. Have the Medium spell every letter.</p>';
       return html;

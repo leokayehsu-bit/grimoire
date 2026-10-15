@@ -9,43 +9,43 @@
   const count = (cs, c) => cs.filter((x) => x === c).length;
 
   // Each template makes one instruction: printed text + the test and pick the game uses.
+  // `say(blot)` prints the sentence around its one blot-able word (the word a smudged copy may lose);
+  // `text` is the clean sentence.
+  const rule = (blot, say, test, pick) => ({ blot, say, text: say(blot), test, pick });
+
   const TEMPLATES = {
     noneOf(rng, n) {
       const c = rng.pick(COLORS), k = rng.int(0, n - 1);
-      return { text: `If there are no ${lc(c)} candles, snuff the ${ORD[k]} candle.`, test: (cs) => count(cs, c) === 0, pick: () => k };
+      return rule(ORD[k], (b) => `If there are no ${lc(c)} candles, snuff the ${b} candle.`, (cs) => count(cs, c) === 0, () => k);
     },
     exactlyOne(rng) {
       const c = rng.pick(COLORS);
-      return { text: `If exactly one candle is ${lc(c)}, snuff it.`, test: (cs) => count(cs, c) === 1, pick: (cs) => cs.indexOf(c) };
+      return rule(lc(c), (b) => `If exactly one candle is ${b}, snuff it.`, (cs) => count(cs, c) === 1, (cs) => cs.indexOf(c));
     },
     lastIs(rng, n) {
       const c = rng.pick(COLORS), k = rng.int(0, n - 2);
-      return { text: `If the last candle is ${lc(c)}, snuff the ${ORD[k]} candle.`, test: (cs) => cs[cs.length - 1] === c, pick: () => k };
+      return rule(ORD[k], (b) => `If the last candle is ${lc(c)}, snuff the ${b} candle.`, (cs) => cs[cs.length - 1] === c, () => k);
     },
     firstIs(rng, n) {
       const c = rng.pick(COLORS), k = rng.int(1, n - 1);
-      return { text: `If the first candle is ${lc(c)}, snuff the ${ORD[k]} candle.`, test: (cs) => cs[0] === c, pick: () => k };
+      return rule(ORD[k], (b) => `If the first candle is ${lc(c)}, snuff the ${b} candle.`, (cs) => cs[0] === c, () => k);
     },
     manyOf(rng) {
       const c = rng.pick(COLORS);
-      return { text: `If more than one candle is ${lc(c)}, snuff the last ${lc(c)} one.`, test: (cs) => count(cs, c) > 1, pick: (cs) => cs.lastIndexOf(c) };
+      return rule(lc(c), (b) => `If more than one candle is ${b}, snuff the last of them.`, (cs) => count(cs, c) > 1, (cs) => cs.lastIndexOf(c));
     },
     moreThan(rng) {
       const [a, b] = rng.sample(COLORS, 2);
-      return {
-        text: `If there are more ${lc(a)} candles than ${lc(b)} candles, snuff the first ${lc(a)} one.`,
-        test: (cs) => count(cs, a) > count(cs, b), pick: (cs) => cs.indexOf(a),
-      };
+      return rule(lc(b), (x) => `If there are more ${lc(a)} candles than ${x} candles, snuff the first ${lc(a)} one.`,
+        (cs) => count(cs, a) > count(cs, b), (cs) => cs.indexOf(a));
     },
   };
 
   function spiritRule(rng, conds) {
     const cond = rng.pick(conds), c = rng.pick(COLORS), which = rng.pick(['first', 'last']);
-    return {
-      text: `If ${cond.text} and at least one candle is ${lc(c)}, snuff the ${which} ${lc(c)} one.`,
-      test: (cs, ctx) => cond.test(ctx) && count(cs, c) > 0,
-      pick: (cs) => (which === 'first' ? cs.indexOf(c) : cs.lastIndexOf(c)),
-    };
+    return rule(which, (b) => `If ${cond.text} and at least one candle is ${lc(c)}, snuff the ${b} ${lc(c)} one.`,
+      (cs, ctx) => cond.test(ctx) && count(cs, c) > 0,
+      (cs) => (which === 'first' ? cs.indexOf(c) : cs.lastIndexOf(c)));
   }
 
   function randomCandles(rng, n) {
@@ -132,14 +132,25 @@
       root.appendChild(el('p', 'relic-tip', 'Touch a flame to snuff it.'));
     },
 
-    manual(rules) {
+    smudgeables(rules) {
+      const out = [];
+      for (let n = 3; n <= 6; n++) {
+        const set = rules.byCount[n];
+        set.rules.forEach((r, i) => out.push({ key: `${n}.${i}`, where: `${COUNT_WORD[n]} candles, instruction ${i + 1}`, value: r.blot }));
+        out.push({ key: `${n}.else`, where: `${COUNT_WORD[n]} candles, the last instruction`, value: ORD[set.fallback] });
+      }
+      return out;
+    },
+
+    manual(rules, smudge) {
+      const ink = G.util.inker(smudge);
       let html = `<p class="lead">The candles stand in a row. Count them from left to right, then read only the passage for that many candles.
         Obey the <em>first</em> instruction that holds true, and snuff exactly one flame.</p>`;
       for (let n = 3; n <= 6; n++) {
         const set = rules.byCount[n];
         html += `<h3>${COUNT_WORD[n]} candles</h3><ol class="rules">`;
-        for (const r of set.rules) html += `<li>${r.text}</li>`;
-        html += `<li>Otherwise, snuff the ${ORD[set.fallback]} candle.</li></ol>`;
+        set.rules.forEach((r, i) => { html += `<li>${r.say(ink(`${n}.${i}`, r.blot))}</li>`; });
+        html += `<li>Otherwise, snuff the ${ink(`${n}.else`, ORD[set.fallback])} candle.</li></ol>`;
       }
       html += '<p class="note">Wax comes in five colours: white, black, red, violet and green.</p>';
       return html;

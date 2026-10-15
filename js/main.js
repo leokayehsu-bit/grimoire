@@ -315,7 +315,8 @@
         if (acc >= 0.5) { acc = 0; sendStatus(); }
       }, 100);
     } else {
-      S.view = G.views.grimoire($('#screen-scholar'), G.rules.build(m.edition));
+      const diff = G.DIFFICULTY[m.difficulty] || G.DIFFICULTY.restless;
+      S.view = G.views.grimoire($('#screen-scholar'), G.rules.build(m.edition), { smudged: !!diff.smudged });
       show('scholar');
     }
   }

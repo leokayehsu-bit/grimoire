@@ -25,8 +25,8 @@
           Array.from({ length: s.maxStrikes }, (_, i) => `<span class="mark ${i < s.strikes ? 'on' : ''}">✕</span>`).join('');
         lastStrikes = s.strikes;
       }
-      const done = s.relics.filter((r) => r.solved).length;
-      cleansed.textContent = `${done} / ${s.relics.length} cleansed`;
+      const cleansable = s.relics.filter((r) => !r.needy);
+      cleansed.textContent = `${cleansable.filter((r) => r.solved).length} / ${cleansable.length} cleansed`;
       document.body.style.setProperty('--wrath', s.wrath.toFixed(3));
     }
     return { el: bar, update };
@@ -54,8 +54,8 @@
     root.appendChild(grid);
 
     const handles = game.relics.map((r, i) => {
-      const panel = el('section', 'relic relic-' + r.id);
-      panel.innerHTML = `<header><h3>${r.title}</h3><span class="seal">Cleansed</span></header>`;
+      const panel = el('section', 'relic relic-' + r.id + (r.needy ? ' needy' : ''));
+      panel.innerHTML = `<header><h3>${r.title}</h3>${r.needy ? '<span class="needy-tag">Soothe only</span>' : '<span class="seal">Cleansed</span>'}</header>`;
       const body = el('div', 'relic-body');
       panel.appendChild(body);
       grid.appendChild(panel);
@@ -82,13 +82,16 @@
     });
 
     return {
-      update: () => sb.update(game.status()),
+      update: () => {
+        sb.update(game.status());
+        handles.forEach((x) => x.h.update && x.h.update());
+      },
       destroy: () => { handles.forEach((x) => x.h.destroy && x.h.destroy()); root.innerHTML = ''; root.classList.remove('shake'); },
     };
   }
 
   // ---- Scholars -------------------------------------------------------------
-  function preface(rules) {
+  function preface(rules, smudged) {
     const moons = G.seance.MOONS.map((m) => `<figure>${G.seance.moonSVG(m, 44)}<figcaption>${title(m)}</figcaption></figure>`).join('');
     const sigils = G.seance.SIGILS.map((s) => `<li><span class="g">${G.seance.SIGIL_GLYPH[s]}</span> the ${title(s)}</li>`).join('');
     return `<p class="lead">You hold the grimoire. Your Medium sits at a séance table with cursed relics they cannot understand.
@@ -107,10 +110,14 @@
       <h3>Offenses</h3>
       <p>Each mistake is an offense. The spirit's wrath rises faster after every offense, and three offenses end the séance.
       If the wrath fills before every relic is cleansed, the séance is lost.</p>
+      ${smudged ? `<h3>Smudged ink</h3>
+      <p>Damp has got into this copy. On every relic page, one entry has run and left only a sign such as
+      <span class="smudge" data-mark="☿">☿</span>. Another Scholar pencilled each lost entry into the margin of
+      a <em>different</em> page under the same sign — find it before you guess.</p>` : ''}
       <p class="note">This is edition ${rules.edition} of the grimoire.</p>`;
   }
 
-  function grimoire(root, rules) {
+  function grimoire(root, rules, { smudged = false } = {}) {
     root.innerHTML = '';
     const sb = statusBar();
     root.appendChild(sb.el);
@@ -124,8 +131,8 @@
     book.append(tabs, page);
     root.appendChild(book);
 
-    const pages = [{ id: 'preface', title: 'Preface', html: preface(rules) }]
-      .concat(G.RELIC_ORDER.map((id) => ({ id, title: G.relics[id].title, html: G.relics[id].manual(rules[id]) })));
+    const pages = [{ id: 'preface', title: 'Preface', html: preface(rules, smudged) }]
+      .concat(G.BOOK_ORDER.map((id) => ({ id, title: G.relics[id].title, html: G.rules.page(rules, id, smudged) })));
     const tabBtns = {};
     for (const p of pages) {
       const b = el('button', 'tab', p.title);
@@ -151,7 +158,7 @@
         lastKey = key;
         onTable.innerHTML = '<span class="label">On the table</span>';
         for (const r of s.relics) {
-          const b = el('button', 'chip' + (r.solved ? ' done' : ''), (r.solved ? '✓ ' : '') + r.title);
+          const b = el('button', 'chip' + (r.solved ? ' done' : '') + (r.needy ? ' needy' : ''), (r.solved ? '✓ ' : '') + r.title);
           b.type = 'button';
           b.addEventListener('click', () => open(r.id));
           onTable.appendChild(b);

@@ -81,6 +81,19 @@
       this.noise(0.6, { vol: 0.05, freq: 5000, q: 0.5, at: 0.1, type: 'highpass' });
     }
 
+    // The doll starts whispering: breathy sibilants and a falling hum.
+    whisper() {
+      for (let k = 0; k < 6; k++) this.noise(0.16, { vol: 0.06, freq: 3000 + Math.random() * 2400, q: 5, at: k * 0.15 });
+      this.tone(740, { dur: 1.4, vol: 0.03, slide: 370, at: 0.1 });
+    }
+
+    hush() {
+      this.tone(659.25, { dur: 0.9, vol: 0.06 });
+      this.tone(523.25, { dur: 1.2, vol: 0.05, at: 0.14 });
+    }
+
+    tick() { this.tone(1400, { type: 'triangle', dur: 0.06, vol: 0.05 }); }
+
     win() {
       [261.63, 329.63, 392, 523.25, 659.25].forEach((f, k) => this.tone(f, { dur: 2.2, vol: 0.09, at: k * 0.16 }));
     }

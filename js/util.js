@@ -58,6 +58,11 @@
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  G.util = { makeRng, hash, ORD, NUMWORD, lc, title, el, esc };
+  // Smudged grimoire: manual() prints every blot-able value through ink(key, html), which prints the value
+  // unless `smudge` names that key, in which case the ink has run and only the smudge's mark is left.
+  const inker = (smudge) => (key, html) =>
+    (smudge && smudge.key === key ? `<span class="smudge" data-mark="${smudge.mark}">${smudge.mark}</span>` : html);
+
+  G.util = { makeRng, hash, ORD, NUMWORD, lc, title, el, esc, inker };
   G.relics = G.relics || {};
 })(globalThis.GR = globalThis.GR || {});
