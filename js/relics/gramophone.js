@@ -78,7 +78,7 @@
         react(wrap, res);
         if (res === 'solved') { disc.classList.add('spin'); api.audio.solve(); }
       });
-      wrap.append(disc, controls, drop);
+      wrap.append(disc, el('span', 'cb-label', `${title(state.color)} record`), controls, drop);
       root.appendChild(wrap);
       root.appendChild(el('p', 'relic-tip', 'Read the label and name the record’s colour. Choose a speed and a groove first.'));
     },

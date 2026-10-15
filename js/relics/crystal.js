@@ -62,8 +62,8 @@
     render(root, state, api) {
       const wrap = el('div', 'crystal');
       const ball = el('div', 'ball');
-      ball.innerHTML = '<span class="mist"></span>';
-      const mist = ball.firstChild;
+      ball.innerHTML = '<span class="mist"></span><span class="cb-label cb-mist"></span>';
+      const mist = ball.firstChild, mistName = ball.lastChild;
       const base = el('div', 'ball-base');
       state.ring.forEach((n, i) => {
         const b = el('button', 'rune-btn');
@@ -83,11 +83,13 @@
       let k = 0;
       const step = (later) => {
         if (k < state.seq.length) {
+          mistName.textContent = title(state.seq[k]);
           mist.style.setProperty('--mist', MIST[state.seq[k++]]);
           ball.classList.add('swirl');
           later(step, 1300);
         } else {
           k = 0;
+          mistName.textContent = '';
           ball.classList.remove('swirl');
           later(step, 1800);
         }

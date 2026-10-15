@@ -60,6 +60,7 @@
       bob.style.setProperty('--crystal', CRYSTAL_CSS[state.crystal]);
       board.appendChild(bob);
       root.appendChild(board);
+      root.appendChild(el('p', 'cb-label cb-block', `${title(state.crystal)} crystal`));
       root.appendChild(el('p', 'relic-tip', 'Name the crystal’s colour and how it swings. Touch a quadrant to stop it there.'));
     },
 

@@ -705,10 +705,17 @@
     online();
   }
 
-  // Music and effects volume, remembered per browser.
+  // Settings (bottom-left): music and effects volume, and colour labels. Remembered per browser.
   function setupSoundControls() {
     const btn = $('#btn-sound'), pop = $('#sound-pop');
-    const icon = () => { btn.textContent = audio.vol.music + audio.vol.sfx === 0 ? '🔇' : '🔊'; };
+    const icon = () => {};
+    const cb = $('#opt-cb');
+    cb.checked = load('colorLabels') === '1';
+    document.body.classList.toggle('cb', cb.checked);
+    cb.addEventListener('change', () => {
+      document.body.classList.toggle('cb', cb.checked);
+      store('colorLabels', cb.checked ? '1' : '0');
+    });
     for (const kind of ['music', 'sfx']) {
       const range = $('#vol-' + kind);
       range.value = Math.round(audio.vol[kind] * 100);

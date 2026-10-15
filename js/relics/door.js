@@ -47,7 +47,7 @@
     },
 
     render(root, state, api) {
-      const fig = `<div class="door-frame"><div class="door-leaf"><span class="knob"></span></div><span class="door-light"></span></div>`;
+      const fig = `<div class="door-frame"><div class="door-leaf"><span class="knob"></span></div><span class="door-light"></span></div><span class="cb-label cb-awake"></span>`;
       let knockTimer = null;
       const knockLoop = (c) => {
         clearTimeout(knockTimer);
@@ -62,7 +62,11 @@
       };
       const panel = needy.panel(root, state, api, {
         figure: fig,
-        awakeClass: (c) => { root.querySelector('.door-light').style.setProperty('--light', LIGHT_CSS[c.light]); return 'creak'; },
+        awakeClass: (c) => {
+          root.querySelector('.door-light').style.setProperty('--light', LIGHT_CSS[c.light]);
+          root.querySelector('.cb-awake').textContent = LIGHT_TEXT[c.light];
+          return 'creak';
+        },
         prompt: () => 'Something is knocking…',
         idle: 'The door is shut. For now.',
         actions: ACTIONS.map((id) => ({ id, label: ACTION_TEXT[id] })),

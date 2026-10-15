@@ -80,7 +80,7 @@
         const b = el('button', `finger f-${lc(f)}`);
         b.type = 'button';
         b.setAttribute('aria-label', `Press the ${FNAME[f]}${h.rings[i] ? ` (${lc(h.rings[i])} ring)` : ''}`);
-        b.innerHTML = (h.rings[i] ? `<span class="fring ${lc(h.rings[i])}"></span>` : '') + `<small>${FNAME[f].replace(' finger', '')}</small>`;
+        b.innerHTML = (h.rings[i] ? `<span class="fring ${lc(h.rings[i])}"><b class="cb-label">${h.rings[i] === 'GOLD' ? 'gold' : 'silver'}</b></span>` : '') + `<small>${FNAME[f].replace(' finger', '')}</small>`;
         b.addEventListener('click', () => {
           if (api.solved()) return;
           react(b, api.attempt(i));

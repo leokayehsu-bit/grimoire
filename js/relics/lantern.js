@@ -56,8 +56,12 @@
           <g class="l-shutters"><rect x="24" y="24" width="10" height="62"/><rect x="46" y="24" width="10" height="62"/>
             <path d="M24 34 H34 M24 44 H34 M24 54 H34 M24 64 H34 M24 74 H34 M46 34 H56 M46 44 H56 M46 54 H56 M46 64 H56 M46 74 H56"/></g>
           <rect class="l-cap" x="20" y="86" width="40" height="10" rx="3"/>
-        </svg>`;
-      const svgStyle = (c) => { root.querySelector('.lantern').style.setProperty('--flame', FLAME_CSS[c.flame]); return `shutters-${c.shutters}`; };
+        </svg><span class="cb-label cb-awake"></span>`;
+      const svgStyle = (c) => {
+        root.querySelector('.lantern').style.setProperty('--flame', FLAME_CSS[c.flame]);
+        root.querySelector('.cb-awake').textContent = `${title(c.flame)} flame`;
+        return `shutters-${c.shutters}`;
+      };
       return needy.panel(root, state, api, {
         figure: fig,
         awakeClass: svgStyle,

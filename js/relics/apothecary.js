@@ -54,7 +54,7 @@
         const b = el('button', 'jar');
         b.type = 'button';
         b.style.setProperty('--liquid', LIQUID_CSS[j.liquid]);
-        b.innerHTML = `<span class="jar-lid"></span><span class="jar-body"><span class="jar-fill"></span><span class="jar-label">${title(j.herb)}</span></span>`;
+        b.innerHTML = `<span class="jar-lid"></span><span class="jar-body"><span class="jar-fill"></span><span class="jar-label">${title(j.herb)}</span></span><span class="cb-label">${title(j.liquid).toLowerCase()}</span>`;
         b.addEventListener('click', () => {
           if (api.solved() || state.added.includes(i)) return;
           const res = api.attempt(i);

@@ -54,7 +54,7 @@
         });
         acts.appendChild(b);
       }
-      wrap.append(bell, listen, acts);
+      wrap.append(bell, el('span', 'cb-label', `${title(state.ribbon)} ribbon`), listen, acts);
       root.appendChild(wrap);
       root.appendChild(el('p', 'relic-tip', 'Count the tolls and note the ribbon. Then ring it back.'));
 

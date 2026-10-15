@@ -115,7 +115,7 @@
         b.type = 'button';
         b.style.setProperty('--wax', WAX[c]);
         b.setAttribute('aria-label', `Snuff the ${ORD[i]} candle (${lc(c)})`);
-        b.innerHTML = '<span class="flame"></span><span class="wax"></span>';
+        b.innerHTML = `<span class="flame"></span><span class="wax"></span><span class="cb-label">${lc(c)}</span>`;
         b.addEventListener('click', () => {
           if (api.solved()) return;
           const res = api.attempt(i);
