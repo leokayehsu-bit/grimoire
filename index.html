@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimoire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="fx-vignette" aria-hidden="true"></div>
+<main id="app">
+
+  <section id="screen-home" class="screen">
+    <div class="home">
+      <div class="crest" aria-hidden="true">☾</div>
+      <h1 class="title">Grimoire</h1>
+      <p class="tagline">One of you sits with the cursed relics. The rest of you hold the book.<br>Talk fast — the spirit is listening.</p>
+      <div class="card">
+        <label class="field"><span>Your name</span><input id="in-name" maxlength="16" autocomplete="off" spellcheck="false"></label>
+        <button id="btn-create" class="btn primary" type="button">Create a room</button>
+        <div class="or">or join one</div>
+        <div class="join-row">
+          <input id="in-code" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" aria-label="Room code">
+          <button id="btn-join" class="btn" type="button">Join</button>
+        </div>
+        <p id="home-msg" class="msg" role="status"></p>
+      </div>
+      <details class="howto">
+        <summary>How to play</summary>
+        <ol>
+          <li>One player creates a room and shares the four-letter code.</li>
+          <li>One player is the <b>Medium</b>. They see the séance table and its cursed relics, but not the book.</li>
+          <li>Everyone else is a <b>Scholar</b>. They read the grimoire, but never see the table.</li>
+          <li>Talk it through — in the same room or on a voice call — and cleanse every relic before the spirit's wrath boils over.</li>
+        </ol>
+      </details>
+      <p id="mode-note" class="mode-note"></p>
+    </div>
+  </section>
+
+  <section id="screen-lobby" class="screen hidden">
+    <div class="lobby">
+      <header class="lobby-head">
+        <div><span class="cap">Room code</span><div id="lobby-code" class="code">····</div></div>
+        <button id="btn-invite" class="btn small" type="button">Copy invite link</button>
+      </header>
+      <div class="lobby-grid">
+        <div class="card">
+          <h2>Who sits where</h2>
+          <div class="roles">
+            <button id="role-medium" class="role-card" type="button">
+              <span class="ico">🕯️</span><b>The Medium</b>
+              <small>Sees the cursed relics. Cannot read the book. Exactly one.</small>
+              <em class="taken"></em>
+            </button>
+            <button id="role-scholar" class="role-card" type="button">
+              <span class="ico">📖</span><b>A Scholar</b>
+              <small>Reads the grimoire. Never sees the table. One or more.</small>
+            </button>
+          </div>
+          <ul id="player-list" class="players"></ul>
+        </div>
+        <div class="card">
+          <h2>The séance</h2>
+          <div id="settings-host">
+            <label class="field"><span>Difficulty</span><select id="in-diff"></select></label>
+            <label class="field"><span>Grimoire edition</span>
+              <span class="ed-row"><input id="in-edition" type="number" min="1" max="999"><button id="btn-ed-random" class="btn small" type="button">Random</button></span>
+            </label>
+            <p class="note">Edition 1 is the standard book. Any other number rewrites every rule, so nobody can play from memory.</p>
+            <button id="btn-start" class="btn primary" type="button">Begin the séance</button>
+            <p id="start-msg" class="msg"></p>
+          </div>
+          <div id="settings-guest" class="hidden">
+            <p id="guest-settings" class="guest-settings"></p>
+            <p class="note">Waiting for the host to begin.</p>
+          </div>
+        </div>
+      </div>
+      <button id="btn-leave" class="btn ghost" type="button">Leave room</button>
+    </div>
+  </section>
+
+  <section id="screen-medium" class="screen hidden"></section>
+  <section id="screen-scholar" class="screen hidden"></section>
+
+  <section id="screen-end" class="screen hidden">
+    <div class="end card">
+      <h1 id="end-title"></h1>
+      <p id="end-text"></p>
+      <dl id="end-stats" class="stats"></dl>
+      <div class="end-actions">
+        <button id="btn-again" class="btn primary" type="button">Back to the lobby</button>
+        <p id="end-wait" class="note">Waiting for the host…</p>
+        <button id="btn-end-leave" class="btn ghost" type="button">Leave room</button>
+      </div>
+    </div>
+  </section>
+
+  <button id="btn-quit" class="quit hidden" type="button">Leave</button>
+</main>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/seance.js"></script>
+<script src="js/relics/candles.js"></script>
+<script src="js/relics/ouija.js"></script>
+<script src="js/relics/musicbox.js"></script>
+<script src="js/relics/tarot.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/game.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/views.js"></script>
+<script src="js/net.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
