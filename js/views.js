@@ -91,7 +91,7 @@
   }
 
   // ---- Scholars -------------------------------------------------------------
-  function preface(rules, smudged) {
+  function preface(rules, sm) {
     const moons = G.seance.MOONS.map((m) => `<figure>${G.seance.moonSVG(m, 44)}<figcaption>${title(m)}</figcaption></figure>`).join('');
     const sigils = G.seance.SIGILS.map((s) => `<li><span class="g">${G.seance.SIGIL_GLYPH[s]}</span> the ${title(s)}</li>`).join('');
     return `<p class="lead">You hold the grimoire. Your Medium sits at a séance table with cursed relics they cannot understand.
@@ -108,37 +108,47 @@
         <li><b>Sigils</b> carved into the table. There are five kinds:<ul class="sigil-list">${sigils}</ul></li>
       </ul>
       <h3>Offenses</h3>
-      <p>Each mistake is an offense. The spirit's wrath rises faster after every offense, and three offenses end the séance.
+      <p>Each mistake is an offense. The spirit's wrath rises faster after every offense, and when the séance's offenses run out it ends.
       If the wrath fills before every relic is cleansed, the séance is lost.</p>
-      ${smudged ? `<h3>Smudged ink</h3>
+      ${sm ? `<h3>Smudged ink</h3>
       <p>Damp has got into this copy. On every relic page, one entry has run and left only a sign such as
       <span class="smudge" data-mark="☿">☿</span>. Another Scholar pencilled each lost entry into the margin of
       a <em>different</em> page under the same sign — find it before you guess.</p>` : ''}
-      <p class="note">This is edition ${rules.edition} of the grimoire.</p>`;
+      <p class="note">This is edition ${rules.edition} of the grimoire.</p>${G.rules.prefaceNotes(sm)}`;
   }
 
   // The book itself: page tabs plus the open page. Shared by the séance and the study screen.
-  function book(rules, smudged, startId = 'preface') {
+  // pages: relic ids in the book; locked: ids shown as locked tabs; fresh: ids marked New.
+  function book(rules, { pages = G.BOOK_ORDER, smudged = false, locked = [], fresh = [], startId = 'preface' } = {}) {
     const wrap = el('div', 'book');
     const tabs = el('nav', 'tabs');
     const page = el('article', 'page');
     wrap.append(tabs, page);
 
-    const pages = [{ id: 'preface', title: 'Preface', html: preface(rules, smudged) }]
-      .concat(G.BOOK_ORDER.map((id) => ({ id, title: G.relics[id].title, html: G.rules.page(rules, id, smudged) })));
+    const sm = smudged ? G.rules.smudges(rules, pages) : null;
+    const entries = [{ id: 'preface', title: 'Preface', html: () => preface(rules, sm) }]
+      .concat(pages.map((id) => ({ id, title: G.relics[id].title, html: () => G.rules.page(rules, id, sm), fresh: fresh.includes(id) })));
     const tabBtns = {};
-    for (const p of pages) {
-      const b = el('button', 'tab', p.title);
+    for (const p of entries) {
+      const b = el('button', 'tab' + (p.fresh ? ' fresh' : ''), p.title);
       b.type = 'button';
+      if (p.fresh) b.appendChild(el('span', 'new-tag', 'New'));
       b.addEventListener('click', () => open(p.id));
       tabs.appendChild(b);
       tabBtns[p.id] = b;
     }
+    for (const id of locked) {
+      const b = el('button', 'tab locked', `🔒 Level ${G.levels.introLevel[id]}`);
+      b.type = 'button';
+      b.disabled = true;
+      b.title = 'Reach this level to unlock its page';
+      tabs.appendChild(b);
+    }
     let current = null;
     function open(id) {
-      const p = pages.find((x) => x.id === id) || pages[0];
+      const p = entries.find((x) => x.id === id) || entries[0];
       current = p.id;
-      page.innerHTML = `<h2>${p.title}</h2>${p.html}<p class="edition">Grimoire · edition ${rules.edition}${smudged ? ' · smudged copy' : ''}</p>`;
+      page.innerHTML = `<h2>${p.title}</h2>${p.html()}<p class="edition">Grimoire · edition ${rules.edition}${smudged ? ' · smudged copy' : ''}</p>`;
       for (const k in tabBtns) tabBtns[k].classList.toggle('active', k === p.id);
       page.scrollTop = 0;
     }
@@ -146,14 +156,16 @@
     return { el: wrap, open, current: () => current };
   }
 
-  function grimoire(root, rules, { smudged = false } = {}) {
+  // The Scholars' screen during a séance. `level` adds a banner with its name and rules.
+  function grimoire(root, rules, { smudged = false, pages, fresh = [], banner = '' } = {}) {
     root.innerHTML = '';
     const sb = statusBar();
     root.appendChild(sb.el);
+    if (banner) { const b = el('div', 'level-banner'); b.innerHTML = banner; root.appendChild(b); }
     const onTable = el('div', 'on-table');
     onTable.innerHTML = '<span class="label">On the table</span><span class="waiting">Waiting for the Medium…</span>';
     root.appendChild(onTable);
-    const bk = book(rules, smudged);
+    const bk = book(rules, { pages, smudged, fresh, startId: fresh[0] || 'preface' });
     root.appendChild(bk.el);
     const open = bk.open;
 
@@ -176,8 +188,8 @@
     };
   }
 
-  // Study the book from the main menu, outside any room: pick an edition, optionally the smudged copy.
-  function study(root, { edition = 1, smudged = false, onChange } = {}) {
+  // Study the book from the main menu, outside any room. Pages unlock as your own progress reaches them.
+  function study(root, { edition = 1, smudged = false, upTo = 1, onChange } = {}) {
     root.innerHTML = '';
     const bar = el('div', 'study-bar');
     bar.innerHTML = `
@@ -185,7 +197,9 @@
       <label class="study-ed"><span class="label">Edition</span><input type="number" min="1" max="999" inputmode="numeric"></label>
       <label class="study-smudge"><input type="checkbox"> <span>Smudged copy <small>(Damned)</small></span></label>`;
     root.appendChild(bar);
-    root.appendChild(el('p', 'role-hint', 'Learn the rules before a séance. Edition 1 is the standard book; a room on another edition uses different rules.'));
+    const pages = G.levels.book(upTo);
+    const locked = G.BOOK_ORDER.filter((id) => !pages.includes(id));
+    root.appendChild(el('p', 'role-hint', `Learn the rules before a séance. You have unlocked ${pages.length} of ${G.BOOK_ORDER.length} pages — more appear as you reach new levels. Edition 1 is the standard book.`));
     const slot = el('div');
     root.appendChild(slot);
 
@@ -197,7 +211,7 @@
       const ed = Math.max(1, Math.min(999, Math.round(+edIn.value) || 1));
       edIn.value = ed;
       const keep = bk ? bk.current() : 'preface';
-      bk = book(G.rules.build(ed), smIn.checked, keep);
+      bk = book(G.rules.build(ed), { pages, smudged: smIn.checked, locked, startId: keep });
       slot.replaceChildren(bk.el);
       if (onChange) onChange({ edition: ed, smudged: smIn.checked });
     }

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=202610142233">
+<link rel="stylesheet" href="css/style.css?v=202610142256">
 </head>
 <body>
 <div id="fx-vignette" aria-hidden="true"></div>
@@ -66,21 +66,28 @@
         </div>
         <div class="card">
           <h2>The séance</h2>
+          <div id="level-card" class="level-card"></div>
           <div id="settings-host">
-            <label class="field"><span>Difficulty</span><select id="in-diff"></select></label>
-            <label class="field"><span>Grimoire edition</span>
-              <span class="ed-row"><input id="in-edition" type="number" min="1" max="999"><button id="btn-ed-random" class="btn small" type="button">Random</button></span>
-            </label>
-            <p class="note">Edition 1 is the standard book. Any other number rewrites every rule, so nobody can play from memory.</p>
+            <div class="field"><span>Difficulty</span><div id="diff-seg" class="diff-seg"></div></div>
+            <div id="free-opts" class="free-opts hidden">
+              <label class="field"><span>Relics</span><select id="in-free-count"></select></label>
+              <label class="field"><span>Needy relics</span><select id="in-free-needy"></select></label>
+            </div>
+            <button id="btn-levels" class="btn small" type="button">Choose a level…</button>
+            <details class="more-opts">
+              <summary>Grimoire edition</summary>
+              <span class="ed-row"><input id="in-edition" type="number" min="1" max="999" aria-label="Grimoire edition"><button id="btn-ed-random" class="btn small" type="button">Random</button></span>
+              <p class="note">Edition 1 is the standard book. Any other number rewrites every rule, so nobody can play from memory.</p>
+            </details>
             <button id="btn-start" class="btn primary" type="button">Begin the séance</button>
             <p id="start-msg" class="msg"></p>
           </div>
           <div id="settings-guest" class="hidden">
-            <p id="guest-settings" class="guest-settings"></p>
-            <p class="note">Waiting for the host to begin.</p>
+            <p class="note">The host chooses the level. Waiting for them to begin.</p>
           </div>
         </div>
       </div>
+      <div id="level-list" class="level-list card hidden"></div>
       <button id="btn-leave" class="btn ghost" type="button">Leave room</button>
     </div>
   </section>
@@ -92,10 +99,13 @@
   <section id="screen-end" class="screen hidden">
     <div class="end card">
       <h1 id="end-title"></h1>
+      <p id="end-level" class="cap"></p>
       <p id="end-text"></p>
+      <p id="end-unlock" class="end-unlock"></p>
       <dl id="end-stats" class="stats"></dl>
       <div class="end-actions">
-        <button id="btn-again" class="btn primary" type="button">Back to the lobby</button>
+        <button id="btn-next" class="btn primary hidden" type="button">Next level →</button>
+        <button id="btn-again" class="btn" type="button">Back to the lobby</button>
         <p id="end-wait" class="note">Waiting for the host…</p>
         <button id="btn-end-leave" class="btn ghost" type="button">Leave room</button>
       </div>
@@ -106,18 +116,35 @@
 </main>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="js/util.js?v=202610142233"></script>
-<script src="js/seance.js?v=202610142233"></script>
-<script src="js/relics/candles.js?v=202610142233"></script>
-<script src="js/relics/ouija.js?v=202610142233"></script>
-<script src="js/relics/musicbox.js?v=202610142233"></script>
-<script src="js/relics/tarot.js?v=202610142233"></script>
-<script src="js/relics/doll.js?v=202610142233"></script>
-<script src="js/rules.js?v=202610142233"></script>
-<script src="js/game.js?v=202610142233"></script>
-<script src="js/audio.js?v=202610142233"></script>
-<script src="js/views.js?v=202610142233"></script>
-<script src="js/net.js?v=202610142233"></script>
-<script src="js/main.js?v=202610142233"></script>
+<script src="js/util.js?v=202610142256"></script>
+<script src="js/seance.js?v=202610142256"></script>
+<script src="js/kit.js?v=202610142256"></script>
+<script src="js/relics/candles.js?v=202610142256"></script>
+<script src="js/relics/ouija.js?v=202610142256"></script>
+<script src="js/relics/musicbox.js?v=202610142256"></script>
+<script src="js/relics/tarot.js?v=202610142256"></script>
+<script src="js/relics/doll.js?v=202610142256"></script>
+<script src="js/relics/dollhouse.js?v=202610142256"></script>
+<script src="js/relics/diary.js?v=202610142256"></script>
+<script src="js/relics/bell.js?v=202610142256"></script>
+<script src="js/relics/mirror.js?v=202610142256"></script>
+<script src="js/relics/headstone.js?v=202610142256"></script>
+<script src="js/relics/crystal.js?v=202610142256"></script>
+<script src="js/relics/lantern.js?v=202610142256"></script>
+<script src="js/relics/gramophone.js?v=202610142256"></script>
+<script src="js/relics/pendulum.js?v=202610142256"></script>
+<script src="js/relics/knucklebones.js?v=202610142256"></script>
+<script src="js/relics/door.js?v=202610142256"></script>
+<script src="js/relics/raven.js?v=202610142256"></script>
+<script src="js/relics/palm.js?v=202610142256"></script>
+<script src="js/relics/salt.js?v=202610142256"></script>
+<script src="js/relics/apothecary.js?v=202610142256"></script>
+<script src="js/rules.js?v=202610142256"></script>
+<script src="js/levels.js?v=202610142256"></script>
+<script src="js/game.js?v=202610142256"></script>
+<script src="js/audio.js?v=202610142256"></script>
+<script src="js/views.js?v=202610142256"></script>
+<script src="js/net.js?v=202610142256"></script>
+<script src="js/main.js?v=202610142256"></script>
 </body>
 </html>

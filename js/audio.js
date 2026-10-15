@@ -94,6 +94,34 @@
 
     tick() { this.tone(1400, { type: 'triangle', dur: 0.06, vol: 0.05 }); }
 
+    // Dull knocks on wood, n in a row.
+    knock(n = 1) {
+      for (let k = 0; k < n; k++) {
+        this.tone(95, { dur: 0.12, vol: 0.3, at: k * 0.32 });
+        this.noise(0.08, { vol: 0.18, freq: 420, q: 1.2, at: k * 0.32 });
+      }
+    }
+
+    // A small hand bell: inharmonic partials with a long decay.
+    bell(vol = 1) {
+      [[880, 0.12], [1320 * 1.01, 0.06], [2210, 0.035], [3010, 0.02]].forEach(([f, v]) => this.tone(f, { dur: 1.6, vol: v * vol }));
+    }
+
+    caw() {
+      this.tone(620, { type: 'sawtooth', dur: 0.32, vol: 0.06, slide: 380 });
+      this.noise(0.3, { vol: 0.08, freq: 1500, q: 2 });
+    }
+
+    creak() {
+      this.tone(140, { type: 'sawtooth', dur: 1.4, vol: 0.05, slide: 210 });
+      this.noise(1.2, { vol: 0.04, freq: 900, q: 6 });
+    }
+
+    flame() {
+      this.noise(0.9, { vol: 0.12, freq: 1200, q: 0.4 });
+      this.tone(300, { type: 'triangle', dur: 0.5, vol: 0.04, slide: 600 });
+    }
+
     win() {
       [261.63, 329.63, 392, 523.25, 659.25].forEach((f, k) => this.tone(f, { dur: 2.2, vol: 0.09, at: k * 0.16 }));
     }

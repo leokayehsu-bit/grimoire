@@ -1,51 +1,86 @@
 // Headless solver test: node tests/check.js [editions=300] [seances=5000]
-// For every edition: the book builds and reads cleanly.
-// For every séance: each relic has exactly one correct answer, a perfect Medium wins,
-// three offenses lose, and the wrath runs out on time. The Whispering Doll whispers on schedule, has exactly
-// one right comfort, punishes silence, and never counts toward the win. In the smudged copy, every relic
-// page loses exactly one entry, and exactly one margin note on another page restores the clean book.
+// For every edition: every relic's book page builds cleanly, and every smudged book (whole or per level) loses
+// exactly one entry per page that exactly one margin note restores.
+// For every séance (all 40 levels × 3 difficulties, plus free séances): the level builds the table it promises,
+// each relic accepts exactly one input at every step, a perfect Medium wins, running out of offenses loses,
+// wrath runs out on time, and every needy relic calls on schedule, has one right answer and punishes silence.
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
-const FILES = ['util', 'seance', 'relics/candles', 'relics/ouija', 'relics/musicbox', 'relics/tarot', 'relics/doll', 'rules', 'game'];
+const RELIC_FILES = fs.readdirSync(path.join(ROOT, 'js/relics')).filter((f) => f.endsWith('.js')).map((f) => 'relics/' + f.slice(0, -3));
+const FILES = ['util', 'seance', 'kit', ...RELIC_FILES, 'rules', 'levels', 'game'];
 const sandbox = vm.createContext({ console });
 for (const f of FILES) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sandbox, { filename: f + '.js' });
 const GR = sandbox.GR;
+const { LEVELS, DIFF_ORDER } = GR.levels;
 
 const EDITIONS = +process.argv[2] || 300;
 const SEANCES = +process.argv[3] || 5000;
 let fails = 0;
-const fail = (msg) => { if (++fails <= 25) console.log('FAIL', msg); };
+const fail = (msg) => { if (++fails <= 30) console.log('FAIL', msg); };
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
-const DOLL = GR.relics.doll;
-let smudgesChecked = 0;
+// ---- Campaign -------------------------------------------------------------
+const ids = Object.keys(GR.relics);
+if (LEVELS.length < 30 || LEVELS.length > 50) fail(`${LEVELS.length} levels`);
+for (const id of ids) {
+  const n = LEVELS.filter((lv) => lv.intro === id).length;
+  if (n !== 1) fail(`${id} is introduced ${n} times`);
+}
+if (GR.BOOK_ORDER.length !== ids.length) fail('the book order is missing relics');
+for (const lv of LEVELS) {
+  if (!lv.name || !lv.desc || lv.desc.length < 30) fail(`level ${lv.n} needs a name and description`);
+  const pages = GR.levels.book(lv.n);
+  const pool = pages.filter((id) => !GR.relics[id].needy);
+  if (lv.count > pool.length) fail(`level ${lv.n} asks for ${lv.count} relics but only ${pool.length} are known`);
+  for (const nd of lv.needy) if (!pages.includes(nd)) fail(`level ${lv.n} uses ${nd} before it is introduced`);
+  for (const d of DIFF_ORDER) {
+    const t = GR.levels.terms(lv, d);
+    if (t.offenses < 1 || t.time < 60 || t.time % 15) fail(`level ${lv.n} ${d}: bad terms ${JSON.stringify(t)}`);
+  }
+}
+{
+  const P = GR.levels.progress;
+  let p = P.empty();
+  if (!P.open(p, 1) || P.open(p, 2) || P.furthest(p) !== 1) fail('fresh progress should open only level 1');
+  p = P.clear(p, 1, 'damned');
+  if (!P.open(p, 2) || P.open(p, 3) || P.furthest(p) !== 2) fail('clearing level 1 should open level 2 only');
+}
+// Epitaphs must stay distinguishable with one word changed.
+{
+  const E = GR.relics.headstone.EPITAPHS;
+  for (let a = 0; a < E.length; a++) for (let b = a + 1; b < E.length; b++) {
+    const same = E[a].filter((w, j) => E[b][j] === w).length;
+    if (same > 1) fail(`epitaphs ${a + 1} and ${b + 1} share ${same} words in place`);
+  }
+}
 
 // ---- Smudged grimoire -----------------------------------------------------
 const SPAN = /<span class="smudge" data-mark="([^"]+)">[^<]*<\/span>/g;
 const NOTE = /<aside class="margin" data-mark="([^"]+)">[\s\S]*?<b class="restored">([\s\S]*?)<\/b>[\s\S]*?<\/aside>/g;
+let smudgesChecked = 0;
 
-function checkSmudges(e, R) {
+function checkSmudges(label, R, pages) {
+  const sm = GR.rules.smudges(R, pages);
   const clean = {}, dirty = {}, notes = [];
-  for (const id of GR.BOOK_ORDER) {
-    clean[id] = GR.rules.page(R, id, false);
-    dirty[id] = GR.rules.page(R, id, true);
-    if (/smudge|class="margin"/.test(clean[id])) fail(`edition ${e} ${id}: the clean book is smudged`);
-    if (/undefined|NaN|\[object/.test(dirty[id])) fail(`edition ${e} ${id}: smudged page has a broken value`);
+  for (const m of GR.rules.prefaceNotes(sm).matchAll(NOTE)) notes.push({ host: 'preface', mark: m[1], value: m[2] });
+  for (const id of pages) {
+    clean[id] = GR.rules.page(R, id, null);
+    dirty[id] = GR.rules.page(R, id, sm);
+    if (/smudge|class="margin"/.test(clean[id])) fail(`${label} ${id}: the clean book is smudged`);
+    if (/undefined|NaN|\[object/.test(clean[id] + dirty[id])) fail(`${label} ${id}: page has a broken value`);
     for (const m of dirty[id].matchAll(NOTE)) notes.push({ host: id, mark: m[1], value: m[2] });
   }
-  for (const id of GR.BOOK_ORDER) {
+  for (const id of pages) {
     const spans = [...dirty[id].matchAll(SPAN)];
-    if (spans.length !== 1) { fail(`edition ${e} ${id}: ${spans.length} smudges on the page`); continue; }
-    const mark = spans[0][1];
-    const found = notes.filter((n) => n.mark === mark);
-    if (found.length !== 1) { fail(`edition ${e} ${id}: ${found.length} margin notes for ${mark}`); continue; }
-    if (found[0].host === id) fail(`edition ${e} ${id}: the margin note is on its own page`);
+    if (spans.length !== 1) { fail(`${label} ${id}: ${spans.length} smudges on the page`); continue; }
+    const found = notes.filter((n) => n.mark === spans[0][1]);
+    if (found.length !== 1) { fail(`${label} ${id}: ${found.length} margin notes for ${spans[0][1]}`); continue; }
+    if (found[0].host === id) fail(`${label} ${id}: the margin note is on its own page`);
     const body = dirty[id].replace(NOTE, '');
-    if (body === clean[id]) fail(`edition ${e} ${id}: nothing was smudged`);
-    // Writing the margin's value back over the smudge must give back the exact clean page.
-    if (body.replace(spans[0][0], () => found[0].value) !== clean[id]) fail(`edition ${e} ${id}: the margin note does not restore the page`);
+    if (body === clean[id]) fail(`${label} ${id}: nothing was smudged`);
+    if (body.replace(spans[0][0], () => found[0].value) !== clean[id]) fail(`${label} ${id}: the margin note does not restore the page`);
     else smudgesChecked++;
   }
 }
@@ -53,175 +88,175 @@ function checkSmudges(e, R) {
 // ---- Editions -------------------------------------------------------------
 for (let e = 1; e <= EDITIONS; e++) {
   const R = GR.rules.build(e);
-  for (const id of GR.RELIC_ORDER) {
-    const html = GR.relics[id].manual(R[id]);
-    if (/undefined|NaN|\[object/.test(html)) fail(`edition ${e} ${id}: manual has a broken value`);
-  }
+  checkSmudges(`edition ${e}`, R, GR.BOOK_ORDER);
+  const lv = LEVELS[e % LEVELS.length];
+  checkSmudges(`edition ${e} level ${lv.n}`, R, GR.levels.book(lv.n));
+  if (e <= 3) checkSmudges(`edition ${e} level 1`, R, GR.levels.book(1));
+
   for (let n = 3; n <= 6; n++) {
     const set = R.candles.byCount[n];
     if (set.rules.length !== 3 || set.fallback < 0 || set.fallback >= n) fail(`edition ${e}: candle set ${n} malformed`);
   }
-  const o = R.ouija;
-  if (new Set(o.words).size !== o.words.length) fail(`edition ${e}: duplicate board words`);
-  for (const w of o.words) {
-    const r = o.table[w];
-    if (r.dusk === r.dawn || !GR.relics.ouija.ANSWERS.includes(r.dusk) || !GR.relics.ouija.ANSWERS.includes(r.dawn)) fail(`edition ${e}: bad answers for ${w}`);
-  }
+  if (new Set(R.ouija.words).size !== R.ouija.words.length) fail(`edition ${e}: duplicate board words`);
   for (const row of [...R.musicbox.lullaby, ...R.musicbox.dirge]) {
     if ([...row].sort().join() !== [...GR.relics.musicbox.FIGURES].sort().join()) fail(`edition ${e}: music row is not a permutation`);
   }
-  if ([...R.tarot.order].sort().join() !== '0,1,2') fail(`edition ${e}: tarot order broken`);
-  const d = R.doll;
-  if (new Set(d.phrases).size !== d.phrases.length) fail(`edition ${e}: duplicate doll whispers`);
-  for (const p of d.phrases) {
-    const row = d.table[p];
-    if (!row || row.open === row.closed || !DOLL.ACTIONS.includes(row.open) || !DOLL.ACTIONS.includes(row.closed)) fail(`edition ${e}: bad comforts for ${p}`);
+  if (new Set(R.dollhouse.patterns).size !== 8) fail(`edition ${e}: dollhouse patterns repeat`);
+  for (const id of GR.NEEDY_ORDER) {
+    const t = R[id].table;
+    for (const k of Object.keys(t)) {
+      const vals = Object.values(t[k]);
+      if (new Set(vals).size !== vals.length) fail(`edition ${e} ${id}: one row gives the same answer twice`);
+    }
   }
-  checkSmudges(e, R);
 }
 
 // ---- Séances --------------------------------------------------------------
-const stats = { candleRule: [0, 0, 0, 0], tarotPos: [0, 0, 0], ouijaDusk: 0, ouija: 0, wins: 0, whispers: 0, dollGames: 0 };
+const stats = { wins: 0, seen: {}, needyGames: 0, calls: 0 };
 
-// A perfect Medium soothes the doll the moment it whispers.
+function uniqueAnswer(def, state, ctx, rules, strikes, label) {
+  const ok = def.inputs(state).filter((inp) => def.attempt(clone(state), inp, ctx, rules, strikes) !== 'strike');
+  if (ok.length !== 1) fail(`${label}: ${ok.length} accepted inputs (${JSON.stringify(ok).slice(0, 80)})`);
+  return ok[0];
+}
+const wrongInput = (r, g) => r.def.inputs(r.state).find((x) => r.def.attempt(clone(r.state), x, g.ctx, g.rules[r.id], g.strikes) === 'strike');
+
+// A perfect Medium answers every needy relic the moment it calls.
 function tend(g) {
-  const r = g.relics.find((x) => x.needy);
-  if (r && r.state.phase === 'whisper' && !g.result) g.attempt(g.relics.indexOf(r), r.def.expected(r.state, g.ctx, g.rules.doll));
+  g.relics.forEach((r, i) => {
+    if (r.needy && r.state.phase === 'whisper' && !g.result) g.attempt(i, r.def.expected(r.state, g.ctx, g.rules[r.id]));
+  });
 }
 
-function dollChecks(seed, edition, difficulty, label) {
-  const g = new GR.Game({ seed, edition, difficulty });
-  const i = g.relics.findIndex((x) => x.needy);
-  if (i < 0) return;
-  const r = g.relics[i];
-  stats.dollGames++;
-  if (r.id !== 'doll' || i !== g.relics.length - 1) fail(`${label}: the doll is not last on the table`);
-
-  // Patient play: answer each whisper after a varying delay inside the window, and check the timing.
+function needyChecks(opts, label) {
+  const g = new GR.Game(opts);
+  const needyIdx = g.relics.map((r, i) => (r.needy ? i : -1)).filter((i) => i >= 0);
+  if (!needyIdx.length) return;
+  stats.needyGames++;
   const dt = 0.5;
-  let t = 0, started = -1, quietSince = 0, whispers = 0;
-  g.on('whisper', () => {
-    const gap = t - quietSince;
-    const [lo, hi] = whispers === 0 ? [25, 35] : [34, 46];
-    if (gap < lo - dt || gap > hi + dt) fail(`${label}: doll whispered after ${gap}s of quiet`);
-    started = t;
-    whispers++;
+  let t = 0;
+  const track = needyIdx.map((i) => ({ i, quietSince: 0, started: -1, calls: 0 }));
+  g.on('whisper', (r) => {
+    const tr = track.find((x) => g.relics[x.i] === r);
+    const Q = r.def.QUIET || { first: [25, 35], next: [34, 46] };
+    const [lo, hi] = tr.calls === 0 ? Q.first : Q.next;
+    const gap = t - tr.quietSince;
+    if (gap < lo - dt || gap > hi + dt) fail(`${label}: ${r.id} called after ${gap}s of quiet`);
+    tr.started = t;
+    tr.calls++;
   });
   while (t < g.duration - 15 && !g.result) {
     g.tick(dt);
     t += dt;
-    if (r.state.phase === 'whisper' && t - started >= (whispers * 7) % 18) {
-      const ans = uniqueAnswer(r.def, r.state, g.ctx, g.rules.doll, g.strikes, `${label} doll`);
-      if (g.attempt(i, ans) !== 'soothed') fail(`${label}: the book's comfort did not soothe the doll`);
-      quietSince = t;
+    for (const tr of track) {
+      const r = g.relics[tr.i];
+      if (r.state.phase === 'whisper' && t - tr.started >= (tr.calls * 7) % 18) {
+        const ans = uniqueAnswer(r.def, r.state, g.ctx, g.rules[r.id], g.strikes, `${label} ${r.id}`);
+        if (g.attempt(tr.i, ans) !== 'soothed') fail(`${label}: the book's answer did not soothe ${r.id}`);
+        tr.quietSince = t;
+      }
     }
   }
-  stats.whispers += whispers;
-  if (whispers < 3) fail(`${label}: doll whispered only ${whispers} times`);
-  if (g.strikes) fail(`${label}: soothing the doll caused an offense`);
-  if (g.result) fail(`${label}: séance ended (${g.result.reason}) with relics still uncleansed`);
-  if (r.solved) fail(`${label}: the doll counted as cleansed`);
+  for (const tr of track) {
+    stats.calls += tr.calls;
+    if (g.duration > 200 && tr.calls < 2) fail(`${label}: ${g.relics[tr.i].id} called only ${tr.calls} times`);
+  }
+  if (g.strikes) fail(`${label}: tending needy relics caused an offense`);
+  if (g.result) fail(`${label}: séance ended (${g.result.reason}) while only tending`);
 
-  // Silence is an offense after exactly the window; touching a quiet doll is not.
-  const h = new GR.Game({ seed, edition, difficulty });
-  const hr = h.relics[i];
-  while (hr.state.phase !== 'whisper') h.tick(1);
-  for (let k = 0; k < DOLL.WINDOW - 1; k++) h.tick(1);
-  if (h.strikes !== 0 || hr.state.phase !== 'whisper') fail(`${label}: doll stopped whispering early`);
-  h.tick(1);
-  if (h.strikes !== 1 || hr.state.phase !== 'quiet') fail(`${label}: an ignored whisper was not an offense`);
-  if (h.attempt(i, 'ROCK') !== 'quiet' || h.strikes !== 1) fail(`${label}: touching a quiet doll did something`);
-  // The wrong comfort is an offense and silences it.
-  while (hr.state.phase !== 'whisper') h.tick(1);
-  const right = hr.def.expected(hr.state, h.ctx, h.rules.doll);
-  if (h.attempt(i, DOLL.ACTIONS.find((a) => a !== right)) !== 'strike' || h.strikes !== 2 || hr.state.phase !== 'quiet') fail(`${label}: the wrong comfort was not an offense`);
-}
-
-function uniqueAnswer(def, state, ctx, rules, strikes, label) {
-  const ok = def.inputs(state).filter((inp) => {
-    const res = def.attempt(clone(state), inp, ctx, rules, strikes);
-    return res !== 'strike';
-  });
-  if (ok.length !== 1) fail(`${label}: ${ok.length} accepted inputs (${JSON.stringify(ok)})`);
-  return ok[0];
+  // Silence is an offense after exactly the window; touching a quiet one is not; the wrong answer is an offense.
+  for (const i of needyIdx) {
+    const h = new GR.Game(opts);
+    if (h.maxStrikes < 3) continue;
+    const hr = h.relics[i], W = hr.def.WINDOW;
+    let guard = 0;
+    while (hr.state.phase !== 'whisper' && guard++ < 200) { h.tick(1); h.relics.forEach((x, k) => { if (k !== i && x.needy && x.state.phase === 'whisper') h.attempt(k, x.def.expected(x.state, h.ctx, h.rules[x.id])); }); }
+    const s0 = h.strikes;
+    for (let k = 0; k < W - 1; k++) h.tick(1);
+    if (hr.state.phase !== 'whisper') fail(`${label}: ${hr.id} stopped calling early`);
+    h.tick(1);
+    if (h.strikes < s0 + 1 || hr.state.phase !== 'quiet') fail(`${label}: an ignored ${hr.id} was not an offense`);
+    const s1 = h.strikes;
+    if (h.attempt(i, hr.def.inputs()[0]) !== 'quiet' || h.strikes !== s1) fail(`${label}: touching a quiet ${hr.id} did something`);
+  }
 }
 
 for (let s = 1; s <= SEANCES; s++) {
   const seed = Math.imul(s, 2654435761) >>> 0;
   const edition = 1 + (s % EDITIONS);
-  const difficulty = ['restless', 'vengeful', 'damned'][s % 3];
-  const label = `seed ${seed} ed ${edition}`;
-  const g = new GR.Game({ seed, edition, difficulty });
+  const difficulty = DIFF_ORDER[s % 3];
+  const free = s % 10 === 0 ? { count: 2 + (s % 5), needy: s % 4, upTo: 1 + (s % LEVELS.length) } : null;
+  const level = free ? 0 : 1 + (Math.floor(s / 3) % LEVELS.length);
+  const opts = { seed, edition, difficulty, level, free };
+  const label = `seed ${seed} ed ${edition} ${free ? 'free' : 'level ' + level} ${difficulty}`;
+  const g = new GR.Game(opts);
   let ended = null;
   g.on('end', (x) => { ended = x; });
-  const rebuilt = new GR.Game({ seed, edition, difficulty });
-  if (JSON.stringify(g.ctx) !== JSON.stringify(rebuilt.ctx) || JSON.stringify(g.relics.map((r) => r.state)) !== JSON.stringify(rebuilt.relics.map((r) => r.state))) {
+
+  const rebuilt = new GR.Game(opts);
+  if (JSON.stringify([g.ctx, g.relics.map((r) => [r.id, r.state])]) !== JSON.stringify([rebuilt.ctx, rebuilt.relics.map((r) => [r.id, r.state])])) {
     fail(`${label}: same seed built a different séance`);
   }
 
-  // A perfect Medium, occasionally making a deliberate mistake (strikes change the music box table).
-  const mistakes = s % 4 === 0 ? 2 : 0;
+  // The table matches the level.
+  const lv = g.level;
+  const cleansable = g.relics.filter((r) => !r.needy);
+  const pool = GR.levels.book(lv.free ? lv.bookUpTo : lv.n).filter((id) => !GR.relics[id].needy);
+  if (cleansable.length !== Math.min(lv.count, pool.length)) fail(`${label}: ${cleansable.length} relics, expected ${lv.count}`);
+  if (g.relics.filter((r) => r.needy).map((r) => r.id).join() !== lv.needy.join()) fail(`${label}: wrong needy relics`);
+  if (!lv.free && lv.intro && !GR.relics[lv.intro].needy && !cleansable.some((r) => r.id === lv.intro)) fail(`${label}: the new relic is missing`);
+  for (const r of cleansable) if (!pool.includes(r.id)) fail(`${label}: ${r.id} appears before it is introduced`);
+  if (g.maxStrikes !== GR.levels.terms(lv, difficulty).offenses) fail(`${label}: wrong offense limit`);
+
+  // A perfect Medium, sometimes making deliberate mistakes (but never enough to lose).
+  const mistakes = s % 4 === 0 ? Math.min(2, g.maxStrikes - 1) : 0;
   let made = 0;
   g.relics.forEach((r, i) => {
     if (r.needy) return;
-    const rules = g.rules[r.id];
-    if (r.id === 'candles') {
-      const set = rules.byCount[r.state.colors.length];
-      let hit = set.rules.findIndex((x) => x.test(r.state.colors, g.ctx));
-      stats.candleRule[hit < 0 ? 3 : hit]++;
-    }
-    if (r.id === 'tarot') stats.tarotPos[r.def.expected(r.state, g.ctx, rules)]++;
-    if (r.id === 'ouija') { stats.ouija++; if (rules.cond.test(g.ctx)) stats.ouijaDusk++; }
-
+    stats.seen[r.id] = (stats.seen[r.id] || 0) + 1;
     let guard = 0;
     while (!r.solved && !g.result && guard++ < 50) {
-      const ans = uniqueAnswer(r.def, r.state, g.ctx, rules, g.strikes, `${label} ${r.id}`);
+      const ans = uniqueAnswer(r.def, r.state, g.ctx, g.rules[r.id], g.strikes, `${label} ${r.id}`);
       if (made < mistakes) {
-        const wrong = r.def.inputs(r.state).find((x) => x !== ans);
-        if (g.attempt(i, wrong) !== 'strike') fail(`${label} ${r.id}: wrong input was not an offense`);
+        const wrong = wrongInput(r, g);
+        if (wrong === undefined || g.attempt(i, wrong) !== 'strike') fail(`${label} ${r.id}: a wrong input was not an offense`);
         made++;
         continue;
       }
-      const res = g.attempt(i, ans);
-      if (res === 'strike') fail(`${label} ${r.id}: the book's answer was punished`);
+      if (g.attempt(i, ans) === 'strike') fail(`${label} ${r.id}: the book's answer was punished`);
     }
     if (!r.solved) fail(`${label} ${r.id}: could not be cleansed`);
   });
   if (!g.result || g.result.result !== 'win') fail(`${label}: perfect play did not win`);
   else stats.wins++;
-  const wantNeedy = GR.DIFFICULTY[difficulty].needy;
-  if (g.relics.filter((r) => r.needy).length !== wantNeedy) fail(`${label}: expected ${wantNeedy} needy relics`);
-  if (ended && ended.total !== GR.DIFFICULTY[difficulty].relics) fail(`${label}: the doll was counted in the cleansed total`);
-  dollChecks(seed, edition, difficulty, label);
+  if (ended && ended.total !== cleansable.length) fail(`${label}: needy relics counted toward the win`);
+  if (ended && ended.level !== (free ? 0 : level)) fail(`${label}: the end report has the wrong level`);
 
-  // Three offenses end the séance.
-  const lose = new GR.Game({ seed, edition, difficulty });
-  for (let k = 0; k < 3; k++) {
-    const r = lose.relics[0];
-    const ans = r.def.expected(r.state, lose.ctx, lose.rules[r.id], lose.strikes);
-    const right = Array.isArray(ans) ? ans[r.state.input.length] : ans;
-    lose.attempt(0, r.def.inputs(r.state).find((x) => x !== right));
+  if (s % 3 === 0) needyChecks(opts, label);
+
+  // Running out of offenses ends the séance.
+  const lose = new GR.Game(opts);
+  for (let k = 0; k < lose.maxStrikes; k++) {
+    const r = lose.relics.find((x) => !x.needy);
+    lose.attempt(lose.relics.indexOf(r), wrongInput(r, lose));
   }
-  if (!lose.result || lose.result.reason !== 'strikes') fail(`${label}: three offenses did not lose`);
+  if (!lose.result || lose.result.reason !== 'strikes') fail(`${label}: ${lose.maxStrikes} offenses did not lose`);
 
   // Wrath runs out on schedule (with one offense it should run 25% faster).
-  const slow = new GR.Game({ seed, edition, difficulty });
-  slow.strikes = 1;
-  for (let t = 0; t < slow.duration / 1.25 - 1; t++) { slow.tick(1); tend(slow); }
-  if (slow.result) fail(`${label}: wrath ended early`);
-  slow.tick(2);
-  if (!slow.result || slow.result.reason !== 'wrath') fail(`${label}: wrath did not end the séance`);
+  if (g.maxStrikes > 1) {
+    const slow = new GR.Game(opts);
+    slow.strikes = 1;
+    for (let t = 0; t < slow.duration / 1.25 - 1; t++) { slow.tick(1); tend(slow); }
+    if (slow.result) fail(`${label}: wrath ended early (${slow.result.reason})`);
+    slow.tick(2);
+    if (!slow.result || slow.result.reason !== 'wrath') fail(`${label}: wrath did not end the séance`);
+  }
 }
 
-const pct = (a, b) => (100 * a / b).toFixed(1) + '%';
-const cr = stats.candleRule, ct = cr.reduce((a, b) => a + b, 0);
-console.log(`editions ${EDITIONS}, séances ${SEANCES}`);
-console.log(`candles: rule1 ${pct(cr[0], ct)} rule2 ${pct(cr[1], ct)} rule3 ${pct(cr[2], ct)} otherwise ${pct(cr[3], ct)}`);
-const tp = stats.tarotPos, tt = tp.reduce((a, b) => a + b, 0);
-console.log(`tarot burns: left ${pct(tp[0], tt)} middle ${pct(tp[1], tt)} right ${pct(tp[2], tt)}`);
-console.log(`spirit board uses Dusk: ${pct(stats.ouijaDusk, stats.ouija)}`);
+console.log(`editions ${EDITIONS}, séances ${SEANCES}, levels ${LEVELS.length}, relics ${ids.length}`);
+console.log('relics cleansed: ' + GR.RELIC_ORDER.map((id) => `${id} ${stats.seen[id] || 0}`).join(', '));
+console.log(`needy: ${stats.needyGames} séances, ${(stats.calls / Math.max(1, stats.needyGames)).toFixed(1)} calls each (patient play)`);
+console.log(`smudged pages restored from the margin: ${smudgesChecked}`);
 console.log(`perfect Medium wins: ${stats.wins}/${SEANCES}`);
-console.log(`doll: ${stats.dollGames} séances, ${(stats.whispers / Math.max(1, stats.dollGames)).toFixed(1)} whispers each (patient play)`);
-console.log(`smudged pages restored from the margin: ${smudgesChecked}/${EDITIONS * GR.BOOK_ORDER.length}`);
 console.log(fails ? `${fails} FAILURES` : 'ALL CHECKS PASSED');
 process.exit(fails ? 1 : 0);

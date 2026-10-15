@@ -3,23 +3,21 @@
   'use strict';
   const { makeRng, hash, esc } = G.util;
 
-  G.RELIC_ORDER = ['candles', 'ouija', 'musicbox', 'tarot'];
-  // Needy relics are never cleansed and never drawn into RELIC_ORDER's sample; the difficulty adds them.
-  G.NEEDY_ORDER = ['doll'];
-  G.BOOK_ORDER = G.RELIC_ORDER.concat(G.NEEDY_ORDER);
+  // Enough marks for every page. Margin notes and smudges are matched by mark.
+  const MARKS = ['☿', '♄', '♃', '♀', '♂', '☊', '☋', '♁', '♅', '♆', '♇', '☉', 'Ψ', 'Ω', 'Δ', 'Σ', 'Φ', 'Θ', 'λ', 'ξ', 'ж', 'ѯ'];
 
-  const MARKS = ['☿', '♄', '♃', '♀', '♂', '☊'];
-
-  // The smudged copy: one value per relic page has run, and a pencilled note on another page restores it.
-  // Notes follow a shuffled cycle of pages, so every page hosts exactly one note and none hosts its own.
-  function smudges(edition, R) {
-    const rng = makeRng(hash(`grimoire/${edition}/smudge`));
-    const ids = rng.shuffle(G.BOOK_ORDER);
+  // The smudged copy of one particular book (the pages a level shows): one value per page has run, and a
+  // pencilled note on another page restores it. Notes follow a shuffled cycle, so every page hosts exactly one
+  // note and none hosts its own. A one-page book keeps its note in the Preface.
+  function smudges(R, pages) {
+    const rng = makeRng(hash(`grimoire/${R.edition}/smudge/${pages.join(',')}`));
+    const ids = rng.shuffle(pages);
     const marks = rng.shuffle(MARKS);
     const out = {};
     ids.forEach((id, k) => {
       const c = rng.pick(G.relics[id].smudgeables(R[id]));
-      out[id] = { key: c.key, where: c.where, value: c.value, mark: marks[k], noteOn: ids[(k + 1) % ids.length] };
+      const noteOn = ids.length === 1 ? 'preface' : ids[(k + 1) % ids.length];
+      out[id] = { key: c.key, where: c.where, value: c.value, mark: marks[k], noteOn };
     });
     return out;
   }
@@ -42,20 +40,33 @@
     make(edition) {
       const conds = G.seance.conditions();
       const out = { edition };
-      for (const id of G.BOOK_ORDER) {
+      for (const id of Object.keys(G.relics)) {
         // Each relic gets its own stream, so adding a relic never reshuffles the others' rules.
         const rng = makeRng(hash(`grimoire/${edition}/${id}`));
         out[id] = G.relics[id].buildRules(rng, conds);
       }
-      out.smudges = smudges(edition, out);
+      out.smudgeCache = new Map();
       return out;
     },
 
-    // One relic page of the grimoire as HTML. `smudged` blots one value and adds another page's margin note.
-    page(R, id, smudged) {
-      let html = G.relics[id].manual(R[id], smudged ? R.smudges[id] : null);
-      if (smudged) {
-        for (const other of G.BOOK_ORDER) if (R.smudges[other].noteOn === id) html += note(other, R.smudges[other]);
+    // Smudges for a given set of pages (cached per edition and page set).
+    smudges(R, pages) {
+      const key = pages.join(',');
+      if (!R.smudgeCache.has(key)) R.smudgeCache.set(key, smudges(R, pages));
+      return R.smudgeCache.get(key);
+    },
+
+    // Margin notes that live in the Preface (only for a one-page book).
+    prefaceNotes(sm) {
+      if (!sm) return '';
+      return Object.keys(sm).filter((id) => sm[id].noteOn === 'preface').map((id) => note(id, sm[id])).join('');
+    },
+
+    // One relic page as HTML. `sm` (from smudges()) blots one value and adds another page's margin note; null = clean.
+    page(R, id, sm) {
+      let html = G.relics[id].manual(R[id], sm ? sm[id] : null);
+      if (sm) {
+        for (const other of Object.keys(sm)) if (sm[other].noteOn === id) html += note(other, sm[other]);
       }
       return html;
     },

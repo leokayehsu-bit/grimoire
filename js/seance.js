@@ -50,7 +50,6 @@
     return pool;
   }
 
-  let moonId = 0;
   function moonSVG(phase, size = 64) {
     const lit = '#efe6c4', dark = '#17131f';
     let body;
@@ -60,7 +59,7 @@
       body = `<circle cx="32" cy="32" r="26" fill="${dark}" stroke="#5a5170" stroke-width="1.5"/>`;
     } else {
       // Waxing: lit on the right. Waning: lit on the left.
-      const id = 'moonclip' + (++moonId);
+      const id = `moonclip-${phase}-${size}`;
       const dx = phase === 'WAXING' ? -15 : 15;
       body = `<clipPath id="${id}"><circle cx="32" cy="32" r="26"/></clipPath>` +
         `<circle cx="32" cy="32" r="26" fill="${lit}"/>` +

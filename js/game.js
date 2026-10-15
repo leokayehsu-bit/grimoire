@@ -4,33 +4,28 @@
   'use strict';
   const { makeRng, hash } = G.util;
 
-  const DIFFICULTY = {
-    restless: { label: 'Restless', relics: 3, needy: 0, time: 300, blurb: '3 relics · 5:00' },
-    vengeful: { label: 'Vengeful', relics: 4, needy: 1, time: 300, blurb: '4 relics + the doll · 5:00' },
-    // Damned also smudges one passage per relic page in the Scholars' copy (see G.rules.page).
-    damned: { label: 'Damned', relics: 4, needy: 1, time: 210, smudged: true, blurb: '4 relics + the doll · 3:30 · smudged ink' },
-  };
-
   class Game {
-    constructor({ seed, edition, difficulty }) {
+    // { seed, edition, difficulty, level } or { ..., free: { count, needy, upTo } } for a free séance.
+    constructor({ seed, edition, difficulty, level, free }) {
       const rng = makeRng(seed);
       this.seed = seed;
       this.edition = edition;
-      this.diff = DIFFICULTY[difficulty] || DIFFICULTY.restless;
+      this.difficulty = difficulty;
+      this.level = free ? G.levels.freeLevel(free.count, free.needy, free.upTo) : G.levels.get(level) || G.levels.get(1);
       this.rules = G.rules.build(edition);
       this.ctx = G.seance.generate(rng);
-      // Needy relics (the doll) sit on the table too, but never count toward the win.
-      const ids = rng.sample(G.RELIC_ORDER, this.diff.relics).concat(G.NEEDY_ORDER.slice(0, this.diff.needy || 0));
-      this.relics = ids.map((id) => {
+      this.plan = G.levels.plan(this.level, difficulty, rng);
+      // Needy relics sit on the table too (last), but never count toward the win.
+      this.relics = this.plan.relics.concat(this.plan.needy).map((id) => {
         const def = G.relics[id];
         const state = def.generate(makeRng((seed ^ hash(id)) >>> 0), this.ctx, this.rules[id]);
         return { id, def, title: def.title, needy: !!def.needy, state, solved: false };
       });
-      this.duration = this.diff.time;
+      this.duration = this.plan.time;
       this.elapsed = 0;
       this.realTime = 0;
       this.strikes = 0;
-      this.maxStrikes = 3;
+      this.maxStrikes = this.plan.offenses;
       this.result = null;
       this.listeners = {};
     }
@@ -90,6 +85,9 @@
         solved: this.cleansable.filter((r) => r.solved).length,
         total: this.cleansable.length,
         edition: this.edition,
+        level: this.level.free ? 0 : this.level.n,
+        levelName: this.level.name,
+        difficulty: this.difficulty,
       });
     }
 
@@ -109,6 +107,5 @@
     }
   }
 
-  G.DIFFICULTY = DIFFICULTY;
   G.Game = Game;
 })(globalThis.GR = globalThis.GR || {});

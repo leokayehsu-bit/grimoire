@@ -4,7 +4,7 @@
 //   join {name}            guest → host      ask to sit at the table
 //   role {role}            guest → host      pick 'medium' | 'scholar'
 //   lobby {players,...}    host → all        the room as it stands
-//   start {seed,edition,difficulty,mediumId}  host → all
+//   start {seed,edition,difficulty,level,free,mediumId}  host → all
 //   status {...}           Medium → all      wrath, offenses, relics (twice a second)
 //   end {result,...}       Medium/host → all
 //   toLobby {}             host → all
@@ -21,13 +21,26 @@
   const S = {
     net: null, screen: 'home',
     me: { id: null, name: '' }, isHost: false, hostId: null, code: null,
-    players: [], settings: { edition: 1, difficulty: 'restless' },
+    players: [], settings: { edition: 1, difficulty: 'vengeful', level: 1, free: null, upTo: 1 },
     current: null, role: null, game: null, view: null, loop: null, joinTimer: null,
   };
   window.grimoire = { S, answers: () => S.game && S.game.answers() };
 
   const store = (k, v) => { try { localStorage.setItem('grimoire.' + k, v); } catch (e) { /* private mode */ } };
   const load = (k) => { try { return localStorage.getItem('grimoire.' + k); } catch (e) { return null; } };
+
+  // Campaign progress lives in this browser. ?unlockall opens every level (for testing; never saved).
+  const P = G.levels.progress;
+  function getProgress() {
+    if (params.has('unlockall')) return P.all();
+    try {
+      const p = JSON.parse(load('progress.v1'));
+      if (p && p.cleared) return p;
+    } catch (e) { /* corrupt or missing */ }
+    return P.empty();
+  }
+  function saveProgress(p) { if (!params.has('unlockall')) store('progress.v1', JSON.stringify(p)); }
+  const fmt = (sec) => G.views.fmt(sec);
 
   function show(name) {
     document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('hidden', s.id !== 'screen-' + name));
@@ -86,6 +99,15 @@
     S.hostId = net.id;
     S.players = [{ id: net.id, name, role: null }];
     S.current = null;
+    const furthest = P.furthest(getProgress());
+    const last = +load('lastLevel');
+    S.settings = {
+      edition: +load('lastEdition') || 1,
+      difficulty: load('lastDifficulty') || 'vengeful',
+      level: last && last <= furthest ? last : furthest,
+      free: null,
+      upTo: furthest,
+    };
     show('lobby');
     broadcastLobby();
   }
@@ -231,8 +253,13 @@
       seed: (Math.random() * 4294967296) >>> 0,
       edition: S.settings.edition,
       difficulty: S.settings.difficulty,
+      level: S.settings.free ? 0 : S.settings.level,
+      free: S.settings.free ? Object.assign({ upTo: S.settings.upTo }, S.settings.free) : null,
       mediumId: S.players.find((p) => p.role === 'medium').id,
     };
+    store('lastLevel', S.settings.level);
+    store('lastDifficulty', S.settings.difficulty);
+    store('lastEdition', S.settings.edition);
     S.net.send(Object.assign({}, m));
     startRound(m);
   }
@@ -259,17 +286,98 @@
 
     $('#settings-host').classList.toggle('hidden', !S.isHost);
     $('#settings-guest').classList.toggle('hidden', S.isHost);
-    const diff = G.DIFFICULTY[S.settings.difficulty] || G.DIFFICULTY.restless;
+    $('#level-card').innerHTML = levelCard(S.settings);
     if (S.isHost) {
+      const st = S.settings, prog = getProgress();
+      const lv = currentLevel(st);
+      const seg = $('#diff-seg');
+      seg.innerHTML = '';
+      for (const d of G.levels.DIFF_ORDER) {
+        const t = G.levels.terms(lv, d);
+        const done = !lv.free && prog.cleared[lv.n] && prog.cleared[lv.n][d];
+        const b = el('button', 'diff-btn' + (st.difficulty === d ? ' on' : ''));
+        b.type = 'button';
+        b.innerHTML = `<b>${G.levels.DIFFICULTY[d].label}${done ? ' ✓' : ''}</b><small>${fmt(t.time)} · ${t.offenses} offense${t.offenses === 1 ? '' : 's'}</small>`;
+        b.addEventListener('click', () => hostSetting('difficulty', d));
+        seg.appendChild(b);
+      }
+      $('#free-opts').classList.toggle('hidden', !st.free);
+      if (st.free) {
+        const avail = G.levels.book(st.upTo);
+        fillSelect($('#in-free-count'), Array.from({ length: Math.min(6, avail.filter((id) => !G.relics[id].needy).length) }, (_, i) => i + 1), st.free.count, (n) => `${n} relic${n === 1 ? '' : 's'}`);
+        fillSelect($('#in-free-needy'), Array.from({ length: avail.filter((id) => G.relics[id].needy).length + 1 }, (_, i) => i), st.free.needy, (n) => (n ? `${n} to soothe` : 'None'));
+      }
       const ed = $('#in-edition');
-      if (document.activeElement !== ed) ed.value = S.settings.edition;
-      $('#in-diff').value = S.settings.difficulty;
+      if (document.activeElement !== ed) ed.value = st.edition;
       const why = startCheck();
       $('#btn-start').disabled = !!why;
       $('#start-msg').textContent = why;
+      if (!$('#level-list').classList.contains('hidden')) renderLevelList();
     } else {
-      $('#guest-settings').textContent = `${diff.label} (${diff.blurb}) · grimoire edition ${S.settings.edition}`;
+      $('#level-list').classList.add('hidden');
     }
+  }
+
+  function fillSelect(sel, values, current, label) {
+    sel.innerHTML = '';
+    for (const v of values) {
+      const o = el('option', null, label(v));
+      o.value = v;
+      sel.appendChild(o);
+    }
+    sel.value = values.includes(current) ? current : values[values.length - 1];
+  }
+
+  function currentLevel(st) {
+    return st.free ? G.levels.freeLevel(st.free.count, st.free.needy, st.upTo) : G.levels.get(st.level);
+  }
+
+  // The card for the chosen level, at the chosen difficulty: name, story, and its terms.
+  function levelCard(st) {
+    const lv = currentLevel(st);
+    if (!lv) return '';
+    const t = G.levels.terms(lv, st.difficulty);
+    const d = G.levels.DIFFICULTY[st.difficulty];
+    const where = lv.free ? 'Free séance' : `${G.levels.CHAPTERS[lv.chapter].name} · Level ${lv.n} of ${G.levels.LEVELS.length}`;
+    const needy = lv.needy.length ? `<div><dt>To soothe</dt><dd>${lv.needy.map((id) => G.relics[id].title).join(', ')}</dd></div>` : '';
+    return `<span class="cap">${where}</span>
+      <h3>${esc(lv.name)}</h3>
+      <p class="lc-desc">${esc(lv.desc)}</p>
+      ${lv.intro ? `<p class="lc-new">✦ New grimoire page: <b>${G.relics[lv.intro].title}</b></p>` : ''}
+      <dl class="lc-terms">
+        <div><dt>Relics to cleanse</dt><dd>${lv.count}</dd></div>${needy}
+        <div><dt>Time limit</dt><dd>${fmt(t.time)}</dd></div>
+        <div><dt>Offenses allowed</dt><dd>${t.offenses}</dd></div>
+        <div><dt>Difficulty</dt><dd>${d.label}${t.smudged ? ' · smudged ink' : ''}</dd></div>
+      </dl>`;
+  }
+
+  // Every chapter and level; locked levels can't be picked yet.
+  function renderLevelList() {
+    const list = $('#level-list');
+    const prog = getProgress();
+    list.innerHTML = '<header class="ll-head"><h2>Choose a level</h2><button class="btn small ll-close" type="button">Close</button></header>';
+    list.querySelector('.ll-close').addEventListener('click', () => list.classList.add('hidden'));
+    G.levels.CHAPTERS.forEach((ch, c) => {
+      const sec = el('section', 'll-chapter');
+      sec.innerHTML = `<h3>${ch.name}</h3><p class="note">${ch.blurb}</p>`;
+      for (const lv of G.levels.LEVELS.filter((x) => x.chapter === c)) {
+        const open = P.open(prog, lv.n);
+        const marks = G.levels.DIFF_ORDER.map((d) => `<i class="${prog.cleared[lv.n] && prog.cleared[lv.n][d] ? 'on' : ''}" title="${G.levels.DIFFICULTY[d].label}">${G.levels.DIFFICULTY[d].label[0]}</i>`).join('');
+        const b = el('button', 'll-row' + (open ? '' : ' locked') + (!S.settings.free && S.settings.level === lv.n ? ' current' : ''));
+        b.type = 'button';
+        b.disabled = !open;
+        b.innerHTML = `<span class="ll-n">${open ? lv.n : '🔒'}</span><span class="ll-name">${esc(lv.name)}${lv.intro ? ` <small>✦ ${G.relics[lv.intro].title}</small>` : ''}</span><span class="ll-marks">${marks}</span>`;
+        b.addEventListener('click', () => { hostSetting('level', lv.n); hostSetting('free', null); list.classList.add('hidden'); });
+        sec.appendChild(b);
+      }
+      list.appendChild(sec);
+    });
+    const free = el('button', 'll-row ll-free' + (S.settings.free ? ' current' : ''));
+    free.type = 'button';
+    free.innerHTML = '<span class="ll-n">∞</span><span class="ll-name">Free séance <small>Any relics you have met, at random</small></span>';
+    free.addEventListener('click', () => { hostSetting('free', { count: 3, needy: 0 }); list.classList.add('hidden'); });
+    list.appendChild(free);
   }
 
   function inviteLink() {
@@ -283,7 +391,7 @@
   // ---- The séance --------------------------------------------------------------
   function startRound(m) {
     stopRound();
-    S.current = { t: 'start', seed: m.seed, edition: m.edition, difficulty: m.difficulty, mediumId: m.mediumId };
+    S.current = { t: 'start', seed: m.seed, edition: m.edition, difficulty: m.difficulty, level: m.level, free: m.free, mediumId: m.mediumId };
     S.role = m.mediumId === S.me.id ? 'medium' : 'scholar';
     audio.startAmbience();
 
@@ -315,8 +423,13 @@
         if (acc >= 0.5) { acc = 0; sendStatus(); }
       }, 100);
     } else {
-      const diff = G.DIFFICULTY[m.difficulty] || G.DIFFICULTY.restless;
-      S.view = G.views.grimoire($('#screen-scholar'), G.rules.build(m.edition), { smudged: !!diff.smudged });
+      const lv = m.free ? G.levels.freeLevel(m.free.count, m.free.needy, m.free.upTo) : G.levels.get(m.level);
+      const t = G.levels.terms(lv, m.difficulty);
+      const banner = `<span class="cap">${lv.free ? 'Free séance' : 'Level ' + lv.n}</span> <b>${esc(lv.name)}</b>
+        <span class="lb-terms">${G.levels.DIFFICULTY[m.difficulty].label} · ${fmt(t.time)} · ${t.offenses} offense${t.offenses === 1 ? '' : 's'}${t.smudged ? ' · smudged ink' : ''}</span>`;
+      S.view = G.views.grimoire($('#screen-scholar'), G.rules.build(m.edition), {
+        smudged: t.smudged, pages: G.levels.book(lv.free ? lv.bookUpTo : lv.n), fresh: lv.intro ? [lv.intro] : [], banner,
+      });
       show('scholar');
     }
   }
@@ -332,7 +445,7 @@
   const END_TEXT = {
     cleansed: ['The spirit is at rest.', 'Every relic is cleansed. The candles burn steady, and the room is only a room again.'],
     wrath: ['The spirit claims the séance.', "The spirit's wrath boiled over before the relics were cleansed."],
-    strikes: ['The spirit claims the séance.', 'Three offenses. The spirit would not forgive.'],
+    strikes: ['The spirit claims the séance.', 'Too many offenses. The spirit would not forgive.'],
     'medium-left': ['The circle is broken.', 'The Medium fled the séance.'],
   };
 
@@ -345,6 +458,22 @@
     $('#end-title').textContent = head;
     $('#end-title').className = m.result === 'win' ? 'win' : 'lose';
     $('#end-text').textContent = text;
+    const lv = m.level ? G.levels.get(m.level) : null;
+    $('#end-level').textContent = m.levelName ? `${lv ? 'Level ' + lv.n + ' · ' : ''}${m.levelName} · ${G.levels.DIFFICULTY[m.difficulty].label}` : '';
+    let unlock = '';
+    if (m.result === 'win' && lv) {
+      const before = getProgress();
+      const wasOpen = P.open(before, lv.n + 1);
+      saveProgress(P.clear(before, lv.n, m.difficulty));
+      const next = G.levels.get(lv.n + 1);
+      if (next && !wasOpen) {
+        unlock = `Level ${next.n} unlocked: ${next.name}.` + (next.intro ? ` A new page appears in the grimoire — ${G.relics[next.intro].title}.` : '');
+      } else if (!next) unlock = 'You have finished the last séance. Try it again on Damned.';
+      if (S.isHost) S.settings = Object.assign({}, S.settings, { upTo: P.furthest(getProgress()) });
+    }
+    $('#end-unlock').textContent = unlock;
+    S.nextLevel = m.result === 'win' && lv && G.levels.get(lv.n + 1) ? lv.n + 1 : 0;
+    $('#btn-next').classList.toggle('hidden', !S.isHost || !S.nextLevel);
     const stats = $('#end-stats');
     stats.innerHTML = '';
     if (m.total) {
@@ -371,6 +500,7 @@
     const view = G.views.study($('#screen-study'), {
       edition: +load('studyEdition') || 1,
       smudged: load('studySmudged') === '1',
+      upTo: P.furthest(getProgress()),
       onChange: (o) => { store('studyEdition', o.edition); store('studySmudged', o.smudged ? '1' : '0'); },
     });
     view.back.addEventListener('click', () => { view.destroy(); show('home'); });
@@ -389,13 +519,6 @@
       ? 'Local mode: rooms only reach other tabs in this browser.'
       : 'Play together in one room, or on a voice call — the game doesn’t carry voices.';
 
-    const diffSel = $('#in-diff');
-    for (const [k, d] of Object.entries(G.DIFFICULTY)) {
-      const o = el('option', null, `${d.label} — ${d.blurb}`);
-      o.value = k;
-      diffSel.appendChild(o);
-    }
-
     $('#btn-create').addEventListener('click', createRoom);
     $('#btn-join').addEventListener('click', joinRoom);
     $('#btn-study').addEventListener('click', openStudy);
@@ -405,7 +528,20 @@
 
     $('#role-medium').addEventListener('click', () => pickRole('medium'));
     $('#role-scholar').addEventListener('click', () => pickRole('scholar'));
-    diffSel.addEventListener('change', (e) => hostSetting('difficulty', e.target.value));
+    $('#btn-levels').addEventListener('click', () => {
+      const list = $('#level-list');
+      list.classList.toggle('hidden');
+      if (!list.classList.contains('hidden')) { renderLevelList(); list.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+    $('#in-free-count').addEventListener('change', (e) => hostSetting('free', Object.assign({}, S.settings.free, { count: +e.target.value })));
+    $('#in-free-needy').addEventListener('change', (e) => hostSetting('free', Object.assign({}, S.settings.free, { needy: +e.target.value })));
+    $('#btn-next').addEventListener('click', () => {
+      if (!S.isHost || !S.nextLevel) return;
+      S.settings = Object.assign({}, S.settings, { level: S.nextLevel, free: null });
+      S.net.send({ t: 'toLobby' });
+      toLobby();
+      broadcastLobby();
+    });
     $('#in-edition').addEventListener('change', (e) => {
       const v = Math.max(1, Math.min(999, Math.round(+e.target.value) || 1));
       e.target.value = v;
@@ -428,6 +564,7 @@
       if (!S.isHost) return;
       S.net.send({ t: 'toLobby' });
       toLobby();
+      broadcastLobby();
     });
     document.addEventListener('pointerdown', () => audio.unlock(), { once: true });
   }
