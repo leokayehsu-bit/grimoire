@@ -72,6 +72,7 @@
         b.innerHTML = rune(n);
         b.addEventListener('click', () => {
           if (api.solved()) return;
+          api.audio.stoneClick();
           react(b, api.attempt(i));
         });
         base.appendChild(b);
@@ -83,6 +84,7 @@
       let k = 0;
       const step = (later) => {
         if (k < state.seq.length) {
+          api.audio.crystalHum(['RED', 'GREEN', 'BLUE', 'VIOLET', 'GOLD'].indexOf(state.seq[k]));
           mistName.textContent = title(state.seq[k]);
           mist.style.setProperty('--mist', MIST[state.seq[k++]]);
           ball.classList.add('swirl');

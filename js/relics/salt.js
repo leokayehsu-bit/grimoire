@@ -103,6 +103,7 @@
         b.addEventListener('click', () => {
           if (api.solved() || state.sealed.includes(p)) return;
           const res = api.attempt(p);
+          if (res === 'strike') api.audio.saltScatter(); else api.audio.saltPour();
           react(b, res);
           draw();
         });

@@ -76,6 +76,7 @@
         b.innerHTML = '<i></i>'.repeat(v);
         b.addEventListener('click', () => {
           if (api.solved()) return;
+          api.audio.boneClatter();
           const res = api.attempt(i);
           react(b, res);
           if (res === 'solved') row.classList.add('kept-' + i);

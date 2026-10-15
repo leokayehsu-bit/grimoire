@@ -56,7 +56,9 @@
         b.type = 'button';
         b.addEventListener('click', () => {
           if (api.solved()) return;
-          react(scene, api.attempt(o));
+          const res = api.attempt(o);
+          if (res === 'solved') api.audio.wings(); else if (res === 'strike') api.audio.caw(true);
+          react(scene, res);
         });
         acts.appendChild(b);
       }

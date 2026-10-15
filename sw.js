@@ -2,7 +2,7 @@
 // version (and the same rules as everyone else in their room); offline it falls back to the saved copy.
 // Scripts and styles carry a ?v= stamp per release, so they are safe to serve straight from the cache.
 // tools/publish.sh rewrites VERSION on every release, which makes browsers install the new worker.
-const VERSION = '202610151443';
+const VERSION = '202610151450';
 const CACHE = 'grimoire-' + VERSION;
 const PEERJS = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
 

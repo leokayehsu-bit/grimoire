@@ -59,9 +59,14 @@
     root.appendChild(sb.el);
     root.appendChild(el('p', 'role-hint', 'You are the Medium. Describe everything you see — you may not read the grimoire.'));
     if (game.curses.length) root.appendChild(curseChips(game.curses));
-    root.appendChild(contextStrip(game.ctx));
+    // The séance table: a wooden top lit by candles from above, with the relics laid out on it.
+    const table = el('div', 'seance-table');
+    table.innerHTML = '<div class="table-glow" aria-hidden="true"></div>';
+    const motes = dust(table);
+    table.appendChild(contextStrip(game.ctx));
     const grid = el('div', 'relics');
-    root.appendChild(grid);
+    table.appendChild(grid);
+    root.appendChild(table);
 
     const handles = game.relics.map((r, i) => {
       const panel = el('section', 'relic relic-' + r.id + (r.needy ? ' needy' : ''));
@@ -98,8 +103,40 @@
         sb.update(game.status());
         handles.forEach((x) => x.h.update && x.h.update());
       },
-      destroy: () => { fx.destroy(); handles.forEach((x) => x.h.destroy && x.h.destroy()); root.innerHTML = ''; root.classList.remove('shake'); },
+      destroy: () => { fx.destroy(); motes.stop(); handles.forEach((x) => x.h.destroy && x.h.destroy()); root.innerHTML = ''; root.classList.remove('shake'); },
     };
+  }
+
+  // Dust drifting through the candlelight: a light canvas behind the relics.
+  function dust(host) {
+    const c = el('canvas', 'dust');
+    c.setAttribute('aria-hidden', 'true');
+    host.appendChild(c);
+    const g = c.getContext('2d');
+    const motes = Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random(), r: 0.6 + Math.random() * 1.6, vx: (Math.random() - 0.5) * 0.008, vy: -0.004 - Math.random() * 0.01, p: Math.random() * 6.28 }));
+    let raf = 0, last = performance.now(), w = 0, h = 0;
+    const frame = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (c.clientWidth !== w || c.clientHeight !== h) { w = c.width = c.clientWidth; h = c.height = c.clientHeight; }
+      g.clearRect(0, 0, w, h);
+      for (const m of motes) {
+        m.p += dt * 0.8;
+        m.x += (m.vx + Math.sin(m.p) * 0.004) * dt;
+        m.y += m.vy * dt;
+        if (m.y < -0.02) { m.y = 1.02; m.x = Math.random(); }
+        if (m.x < 0) m.x += 1; else if (m.x > 1) m.x -= 1;
+        // Brighter near the candlelight at the top centre.
+        const lit = Math.max(0, 1 - Math.hypot(m.x - 0.5, m.y * 1.3) * 1.2);
+        g.fillStyle = `rgba(255, 220, 160, ${0.08 + 0.35 * lit})`;
+        g.beginPath();
+        g.arc(m.x * w, m.y * h, m.r, 0, 6.283);
+        g.fill();
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return { stop: () => cancelAnimationFrame(raf) };
   }
 
   function curseChips(ids) {

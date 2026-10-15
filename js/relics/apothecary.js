@@ -58,6 +58,7 @@
         b.addEventListener('click', () => {
           if (api.solved() || state.added.includes(i)) return;
           const res = api.attempt(i);
+          if (res === 'strike') api.audio.glassClink(); else api.audio.pour();
           react(b, res);
           draw();
         });

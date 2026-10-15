@@ -50,7 +50,7 @@
         b.type = 'button';
         b.addEventListener('click', () => {
           if (api.solved()) return;
-          api.audio.scrape();
+          api.audio.chisel();
           const res = api.attempt(i);
           react(b, res);
           if (res === 'solved') b.classList.add('chiselled');

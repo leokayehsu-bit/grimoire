@@ -67,6 +67,7 @@
         b.dataset.ans = a;
         b.addEventListener('click', () => {
           if (api.solved()) return;
+          api.audio.woodTap();
           const res = api.attempt(a);
           b.classList.remove('wrong', 'right');
           void b.offsetWidth;
@@ -125,7 +126,7 @@
             if (dead) return;
             lit = target;
             target.classList.add('lit');
-            api.audio.scrape();
+            api.audio.glide();
             // Hold on the letter, then lift so a doubled letter is visibly touched twice.
             timer = setTimeout(() => {
               if (dead) return;

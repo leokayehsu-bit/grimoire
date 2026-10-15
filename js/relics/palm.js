@@ -83,6 +83,7 @@
         b.innerHTML = (h.rings[i] ? `<span class="fring ${lc(h.rings[i])}"><b class="cb-label">${h.rings[i] === 'GOLD' ? 'gold' : 'silver'}</b></span>` : '') + `<small>${FNAME[f].replace(' finger', '')}</small>`;
         b.addEventListener('click', () => {
           if (api.solved()) return;
+          api.audio.skinTap();
           react(b, api.attempt(i));
         });
         fingers.appendChild(b);

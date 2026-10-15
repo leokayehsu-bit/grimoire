@@ -49,6 +49,7 @@
         b.innerHTML = `<span>${SYMBOLS[s]}</span>`;
         b.addEventListener('click', () => {
           if (api.solved()) return;
+          api.audio.swish();
           const res = api.attempt(i);
           react(b, res);
           if (res === 'solved') board.classList.add('still');

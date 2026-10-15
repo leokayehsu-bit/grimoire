@@ -54,8 +54,8 @@
         up.type = dn.type = 'button';
         up.setAttribute('aria-label', `Dial ${k + 1} up`);
         dn.setAttribute('aria-label', `Dial ${k + 1} down`);
-        up.addEventListener('click', () => { vals[k] = (vals[k] + 1) % 10; v.textContent = vals[k]; api.audio.scrape(); });
-        dn.addEventListener('click', () => { vals[k] = (vals[k] + 9) % 10; v.textContent = vals[k]; api.audio.scrape(); });
+        up.addEventListener('click', () => { vals[k] = (vals[k] + 1) % 10; v.textContent = vals[k]; api.audio.dialClick(); });
+        dn.addEventListener('click', () => { vals[k] = (vals[k] + 9) % 10; v.textContent = vals[k]; api.audio.dialClick(); });
         d.append(up, v, dn);
         dials.appendChild(d);
         return v;
@@ -65,6 +65,7 @@
       key.addEventListener('click', () => {
         if (api.solved()) return;
         const res = api.attempt(vals.join(''));
+        if (res === 'solved') api.audio.latch(); else if (res === 'strike') api.audio.lockRattle();
         react(book, res);
         if (res === 'solved') book.classList.add('open');
       });

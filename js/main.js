@@ -784,6 +784,11 @@
     $('#btn-create').addEventListener('click', createRoom);
     $('#btn-join').addEventListener('click', joinRoom);
     $('#btn-study').addEventListener('click', openStudy);
+    // A soft wooden tick on menu buttons (relics make their own sounds during a séance).
+    document.addEventListener('click', (e) => {
+      if (S.screen === 'medium' || S.screen === 'scholar') return;
+      if (e.target.closest('.btn, .role-card, .diff-btn, .ll-row, .seg-btn')) audio.uiTap();
+    });
     $('#btn-solo').addEventListener('click', playSolo);
     $('#btn-print').addEventListener('click', () => {
       const st = S.settings;

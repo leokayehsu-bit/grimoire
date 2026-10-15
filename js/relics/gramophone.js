@@ -60,7 +60,7 @@
         const btns = values.map((v) => {
           const b = el('button', 'seg-btn', fmt(v));
           b.type = 'button';
-          b.addEventListener('click', () => { set(v); btns.forEach((x) => x.classList.toggle('on', x === b)); api.audio.scrape(); });
+          b.addEventListener('click', () => { set(v); btns.forEach((x) => x.classList.toggle('on', x === b)); api.audio.mechClick(); });
           g.appendChild(b);
           return b;
         });
@@ -76,7 +76,7 @@
         if (api.solved() || speed == null || groove == null) return;
         const res = api.attempt(`${speed}|${groove}`);
         react(wrap, res);
-        if (res === 'solved') { disc.classList.add('spin'); api.audio.solve(); }
+        if (res === 'solved') { disc.classList.add('spin'); api.audio.phonograph(); } else if (res === 'strike') api.audio.needleScratch();
       });
       wrap.append(disc, el('span', 'cb-label', `${title(state.color)} record`), controls, drop);
       root.appendChild(wrap);

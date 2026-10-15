@@ -69,6 +69,7 @@
         b.addEventListener('click', () => {
           if (api.solved()) return;
           const res = api.attempt(i);
+          if (res === 'solved') api.audio.burn(); else if (res === 'strike') api.audio.cardFlick();
           b.classList.remove('wrong');
           void b.offsetWidth;
           b.classList.add(res === 'solved' ? 'burn' : 'wrong');

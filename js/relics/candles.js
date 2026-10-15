@@ -119,6 +119,7 @@
         b.addEventListener('click', () => {
           if (api.solved()) return;
           const res = api.attempt(i);
+          if (res === 'solved') api.audio.pinch(); else if (res === 'strike') api.audio.flare();
           if (res === 'solved') b.classList.add('out');
           else if (res === 'strike') {
             b.classList.remove('flare');

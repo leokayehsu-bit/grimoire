@@ -19,6 +19,8 @@ A co-op "one sees, the others read" party game. The **Medium** sits at a séance
 
 **Colour labels:** Settings (bottom-left ⚙) → Colour labels names every colour a relic uses — candles, bell ribbon, crystal-ball mist, lantern flame, pendulum crystal, apothecary liquids, gramophone record, the light under the door and the rings in Palm Reading — for colourblind players. Each relic renders a hidden `.cb-label`; `body.cb` shows them.
 
+**The Medium's table:** relics sit on a wood-grain séance table (`.seance-table`) under flickering candlelight with drifting dust (a small canvas), each on a velvet cloth with brass corners and an engraved nameplate; a red wax seal is pressed on when a relic is cleansed. Every relic has its own sounds (pinched candles, burning cards, dial clicks and a latch, glass chimes and cracks, chisel on stone, bone clatter, pouring salt, bubbling jars, a crackly gramophone tune, wings…) on top of the shared offense/cleansing cues; quiet ones are scaled by `BOOST` in `js/audio.js`.
+
 **What Scholars see:** only the offense marks (the Music Box page depends on them). No timer, wrath meter, cleansed count or relic names, so the Medium has to describe the table. They still feel the wrath: the red vignette closes in and throbs faster, the screen shakes on offenses, glows on cleansings, and the music follows the Medium's séance.
 
 **Crossplay:** the app and the website are the same build. Every player's release stamp travels with them into a room; if anyone's differs from the host's, the lobby says who must reload and the séance can't start, so nobody plays with different rules.

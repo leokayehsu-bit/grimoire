@@ -75,7 +75,7 @@
       const pips = el('div', 'mbox-pips');
       const crank = el('button', 'btn crank', '⟳ Wind the box');
       crank.type = 'button';
-      crank.addEventListener('click', () => { if (!api.solved()) play(); });
+      crank.addEventListener('click', () => { if (!api.solved()) { api.audio.ratchet(); play(); } });
       box.append(lid, pips, crank);
       root.appendChild(box);
       root.appendChild(el('p', 'relic-tip', 'Listen to the melody, then touch the figures.'));

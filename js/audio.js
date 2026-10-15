@@ -27,6 +27,7 @@
       this.I = 0;               // smoothed intensity 0..1
       this.state = { wrath: 0, strikes: 0, remaining: Infinity };
       this.passed = new Set();  // wrath stingers already played this séance
+      this.k = 1;               // loudness multiplier for tone()/noise() (see BOOST)
     }
 
     // ---- Setup ----------------------------------------------------------------
@@ -109,6 +110,7 @@
     tone(freq, { type = 'sine', dur = 0.4, vol = 0.2, at = 0, when, attack = 0.006, slide = null, dest } = {}) {
       if (!this.ctx) return;
       const t = when != null ? when : this.ctx.currentTime + at;
+      vol *= this.k;
       const o = this.ctx.createOscillator(), g = this.ctx.createGain();
       o.type = type;
       o.frequency.setValueAtTime(freq, t);
@@ -124,6 +126,7 @@
     noise(dur, { vol = 0.2, freq = 1000, q = 1, at = 0, when, type = 'bandpass', sweep = null, attack = 0.02, dest } = {}) {
       if (!this.ctx) return;
       const t = when != null ? when : this.ctx.currentTime + at;
+      vol *= this.k;
       const src = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
       src.buffer = this.noiseBuf;
       f.type = type;
@@ -220,10 +223,209 @@
       [[880, 0.12], [1320 * 1.01, 0.06], [2210, 0.035], [3010, 0.02]].forEach(([f, v]) => this.tone(f, { dur: 1.8, vol: v * vol }));
     }
 
-    caw() {
-      this.tone(620, { type: 'sawtooth', dur: 0.32, vol: 0.15, slide: 380 });
-      this.tone(1240, { type: 'square', dur: 0.2, vol: 0.03, slide: 760 });
-      this.noise(0.3, { vol: 0.2, freq: 1500, q: 2, sweep: 900 });
+    // A hoarse caw: a falling rasp through a throat-like filter, twice as loud when angry.
+    caw(angry = false) {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      for (const [a, b, d] of [[760, 430, 0], [1520, 860, 0.004]]) {
+        const o = this.ctx.createOscillator(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(a, t + d);
+        o.frequency.exponentialRampToValueAtTime(b, t + d + 0.3);
+        f.type = 'bandpass';
+        f.frequency.value = 1150;
+        f.Q.value = 3.5;
+        g.gain.setValueAtTime(0.0001, t + d);
+        g.gain.exponentialRampToValueAtTime(angry ? 0.6 : 0.42, t + d + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.32);
+        o.connect(f).connect(g).connect(this.sfx);
+        o.start(t + d);
+        o.stop(t + d + 0.35);
+      }
+      this.noise(0.28, { vol: 0.3, freq: 1800, q: 2, sweep: 900, attack: 0.01 });
+    }
+
+    // ---- Relic sounds -----------------------------------------------------------
+    // Candles: pinched out with a hiss of smoke; or flaring up angrily.
+    pinch() {
+      this.noise(0.07, { vol: 0.16, freq: 2400, type: 'highpass', attack: 0.004 });
+      this.noise(1.3, { vol: 0.05, freq: 1300, q: 1.2, sweep: 380, attack: 0.08, at: 0.05 });
+      this.tone(330, { type: 'triangle', dur: 0.12, vol: 0.03, slide: 160 });
+    }
+
+    flare() {
+      this.noise(0.7, { vol: 0.28, freq: 500, q: 0.8, sweep: 3200, attack: 0.03 });
+      this.tone(80, { dur: 0.6, vol: 0.18, slide: 55 });
+    }
+
+    // Tarot: a card catching fire and crackling away.
+    burn() {
+      if (!this.ctx) return;
+      this.noise(1.2, { vol: 0.16, freq: 300, type: 'lowpass', sweep: 2200, attack: 0.15 });
+      for (let k = 0; k < 26; k++) this.noise(0.02 + Math.random() * 0.04, { vol: 0.05 + Math.random() * 0.09, freq: 2500 + Math.random() * 4000, type: 'highpass', attack: 0.002, at: 0.1 + Math.random() * 1.3 });
+    }
+
+    cardFlick() {
+      this.noise(0.08, { vol: 0.12, freq: 2600, q: 1.5, attack: 0.004 });
+      this.noise(0.06, { vol: 0.08, freq: 1200, q: 1.5, attack: 0.004, at: 0.07 });
+    }
+
+    // Spirit Board: the planchette sliding over wood, and a firm tap on an answer.
+    glide() { this.noise(0.5, { vol: 0.08, freq: 380, q: 0.7, sweep: 520, attack: 0.12 }); }
+
+    woodTap() {
+      this.tone(185, { type: 'triangle', dur: 0.09, vol: 0.2, slide: 140 });
+      this.noise(0.05, { vol: 0.12, freq: 900, q: 1.5, attack: 0.002 });
+    }
+
+    // Music box: winding the crank.
+    ratchet() {
+      for (let k = 0; k < 9; k++) {
+        this.noise(0.016, { vol: 0.11, freq: 3200, type: 'highpass', attack: 0.002, at: k * 0.065 });
+        this.tone(2300 + (k % 2) * 300, { type: 'square', dur: 0.012, vol: 0.012, attack: 0.001, at: k * 0.065 });
+      }
+    }
+
+    // Locked Diary: dial detents, a rattle on the wrong code, a heavy latch on the right one.
+    dialClick() {
+      this.noise(0.022, { vol: 0.16, freq: 3300, q: 8, attack: 0.001 });
+      this.tone(1750, { type: 'square', dur: 0.014, vol: 0.025, attack: 0.001 });
+    }
+
+    lockRattle() {
+      for (let k = 0; k < 3; k++) {
+        this.tone(880 + k * 90, { type: 'square', dur: 0.035, vol: 0.04, attack: 0.002, at: k * 0.075 });
+        this.noise(0.04, { vol: 0.12, freq: 2600, q: 4, attack: 0.002, at: k * 0.075 });
+      }
+    }
+
+    latch() {
+      this.tone(140, { dur: 0.14, vol: 0.32, slide: 90, attack: 0.003 });
+      this.noise(0.1, { vol: 0.2, freq: 800, type: 'lowpass', attack: 0.003 });
+      this.tone(2400, { dur: 0.5, vol: 0.03, attack: 0.002 });
+      this.tone(92, { dur: 0.22, vol: 0.25, slide: 70, at: 0.18 });
+      this.pageTurn();
+    }
+
+    // Haunted Mirror: a clear chime, or the glass splintering.
+    glassChime() {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      this.tine(1567.98, t, 0.08);
+      this.tine(2093, t + 0.07, 0.06);
+      this.noise(0.5, { vol: 0.03, freq: 7000, type: 'highpass', attack: 0.05 });
+    }
+
+    glassCrack() {
+      for (let k = 0; k < 7; k++) this.noise(0.03 + Math.random() * 0.05, { vol: 0.14, freq: 3500 + Math.random() * 4500, q: 5, attack: 0.001, at: Math.random() * 0.28 });
+      this.tone(3100, { type: 'triangle', dur: 0.25, vol: 0.03, attack: 0.001, slide: 2600 });
+      this.tone(120, { dur: 0.15, vol: 0.15, slide: 80 });
+    }
+
+    // Weathered Headstone: a chisel biting stone.
+    chisel() {
+      this.tone(2650, { type: 'square', dur: 0.018, vol: 0.04, attack: 0.001 });
+      this.noise(0.06, { vol: 0.18, freq: 4200, q: 3, attack: 0.001 });
+      this.noise(0.25, { vol: 0.06, freq: 1500, q: 1, sweep: 900, attack: 0.01, at: 0.03 });
+    }
+
+    // Crystal Ball: a glassy hum as the mist changes colour; a stone click on a rune.
+    crystalHum(i = 0) {
+      const f = [659.25, 880, 987.77, 1318.5, 1174.66][i % 5];
+      this.tone(f, { dur: 1.3, vol: 0.022, attack: 0.35 });
+      this.tone(f * 1.006, { dur: 1.3, vol: 0.016, attack: 0.4 });
+      this.tone(f * 2, { dur: 0.9, vol: 0.006, attack: 0.3 });
+    }
+
+    stoneClick() {
+      this.tone(620, { type: 'triangle', dur: 0.05, vol: 0.12, attack: 0.002 });
+      this.noise(0.035, { vol: 0.1, freq: 2100, q: 2, attack: 0.001 });
+    }
+
+    // The Raven: wings beating as it takes the offering.
+    wings() {
+      for (let k = 0; k < 6; k++) this.noise(0.1, { vol: 0.16 - k * 0.02, freq: 420, q: 0.9, sweep: 950, attack: 0.02, at: k * 0.11 });
+    }
+
+    // Palm Reading: a soft press on skin.
+    skinTap() {
+      this.tone(110, { dur: 0.1, vol: 0.2, slide: 78, attack: 0.004 });
+      this.noise(0.05, { vol: 0.06, freq: 300, type: 'lowpass', attack: 0.003 });
+    }
+
+    // Gramophone: switches, the needle catching, and a crackly old tune.
+    mechClick() {
+      this.noise(0.02, { vol: 0.12, freq: 2600, type: 'highpass', attack: 0.001 });
+      this.tone(1180, { type: 'square', dur: 0.012, vol: 0.025, attack: 0.001 });
+    }
+
+    needleScratch() {
+      this.noise(0.32, { vol: 0.22, freq: 3200, q: 2, sweep: 600, attack: 0.005 });
+      this.noise(0.2, { vol: 0.16, freq: 700, q: 2, sweep: 2600, attack: 0.005, at: 0.3 });
+    }
+
+    phonograph() {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      for (let k = 0; k < 40; k++) this.noise(0.012, { vol: 0.03 + Math.random() * 0.05, freq: 3000 + Math.random() * 3000, type: 'highpass', attack: 0.001, at: Math.random() * 3 });
+      this.noise(3, { vol: 0.02, freq: 1200, q: 0.5, attack: 0.2 });
+      const tune = [587.33, 698.46, 880, 783.99, 698.46, 659.25, 587.33];
+      tune.forEach((f, k) => {
+        const o = this.ctx.createOscillator(), b = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+        const w = t + 0.25 + k * 0.32;
+        o.type = 'square';
+        o.frequency.value = f;
+        b.type = 'bandpass';
+        b.frequency.value = 1400;
+        b.Q.value = 1.2;
+        g.gain.setValueAtTime(0.0001, w);
+        g.gain.exponentialRampToValueAtTime(0.05, w + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, w + 0.42);
+        o.connect(b).connect(g).connect(this.sfx);
+        o.start(w);
+        o.stop(w + 0.45);
+      });
+    }
+
+    // Pendulum: the chain swishing as it is caught.
+    swish() { this.noise(0.3, { vol: 0.08, freq: 700, q: 1.2, sweep: 1700, attack: 0.05 }); }
+
+    // Knucklebones: bones clattering on the table.
+    boneClatter() {
+      for (let k = 0; k < 6; k++) {
+        const at = k * 0.05 + Math.random() * 0.04;
+        this.tone(900 + Math.random() * 600, { type: 'triangle', dur: 0.035, vol: 0.06, attack: 0.001, at });
+        this.noise(0.03, { vol: 0.08, freq: 2400, q: 3, attack: 0.001, at });
+      }
+    }
+
+    // Salt Circle: a thin stream of salt; or the whole circle scattering.
+    saltPour() {
+      for (let k = 0; k < 32; k++) this.noise(0.008, { vol: 0.03 + Math.random() * 0.03, freq: 5000 + Math.random() * 3000, type: 'highpass', attack: 0.001, at: Math.random() * 0.6 });
+      this.noise(0.6, { vol: 0.02, freq: 6000, type: 'highpass', attack: 0.1 });
+    }
+
+    saltScatter() {
+      this.noise(0.5, { vol: 0.14, freq: 3200, type: 'highpass', attack: 0.004 });
+      for (let k = 0; k < 20; k++) this.noise(0.01, { vol: 0.06, freq: 4000 + Math.random() * 4000, type: 'highpass', attack: 0.001, at: Math.random() * 0.5 });
+    }
+
+    // Apothecary: liquid poured and bubbling; or a jar clinking against the wrong one.
+    pour() {
+      this.noise(0.7, { vol: 0.06, freq: 900, type: 'lowpass', attack: 0.08 });
+      for (let k = 0; k < 10; k++) this.tone(220 + Math.random() * 180, { dur: 0.06, vol: 0.05, attack: 0.003, slide: 600 + Math.random() * 300, at: 0.1 + Math.random() * 0.6 });
+    }
+
+    glassClink() {
+      this.tone(2400, { dur: 0.4, vol: 0.05, attack: 0.001 });
+      this.tone(3720, { dur: 0.28, vol: 0.03, attack: 0.001 });
+      this.noise(0.4, { vol: 0.04, freq: 5000, type: 'highpass', attack: 0.05, at: 0.05 });
+    }
+
+    // A soft wooden tick for menu buttons.
+    uiTap() {
+      this.tone(430, { type: 'triangle', dur: 0.045, vol: 0.035, attack: 0.002 });
+      this.noise(0.02, { vol: 0.02, freq: 2000, q: 2, attack: 0.001 });
     }
 
     creak() {
@@ -546,6 +748,17 @@
         this.noise(0.5, { when: t, vol: 0.1, freq: 300, type: 'lowpass', sweep: 80, dest: m.bus });
       }
     }
+  }
+
+  // Small interaction sounds measured too quiet under the music: scale each one up as a whole.
+  const BOOST = { dialClick: 5, uiTap: 3, mechClick: 2.5, chisel: 5, stoneClick: 3, cardFlick: 3, swish: 4, pinch: 2.5, glide: 2, skinTap: 2, woodTap: 2, scrape: 3, glassCrack: 1.8, lockRattle: 1.6 };
+  for (const [name, k] of Object.entries(BOOST)) {
+    const f = Sound.prototype[name];
+    Sound.prototype[name] = function (...args) {
+      const prev = this.k;
+      this.k = prev * k;
+      try { return f.apply(this, args); } finally { this.k = prev; }
+    };
   }
 
   G.Sound = Sound;
