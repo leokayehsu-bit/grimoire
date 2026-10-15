@@ -366,6 +366,17 @@
     renderLobby();
   }
 
+  // ---- Study (read the book outside a room) -------------------------------------
+  function openStudy() {
+    const view = G.views.study($('#screen-study'), {
+      edition: +load('studyEdition') || 1,
+      smudged: load('studySmudged') === '1',
+      onChange: (o) => { store('studyEdition', o.edition); store('studySmudged', o.smudged ? '1' : '0'); },
+    });
+    view.back.addEventListener('click', () => { view.destroy(); show('home'); });
+    show('study');
+  }
+
   // ---- Wiring ------------------------------------------------------------------
   function init() {
     $('#in-name').value = load('name') || '';
@@ -387,6 +398,7 @@
 
     $('#btn-create').addEventListener('click', createRoom);
     $('#btn-join').addEventListener('click', joinRoom);
+    $('#btn-study').addEventListener('click', openStudy);
     $('#in-code').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
     $('#in-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom(); });
     $('#in-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') ($('#in-code').value ? joinRoom : createRoom)(); });

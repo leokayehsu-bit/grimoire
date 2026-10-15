@@ -117,19 +117,12 @@
       <p class="note">This is edition ${rules.edition} of the grimoire.</p>`;
   }
 
-  function grimoire(root, rules, { smudged = false } = {}) {
-    root.innerHTML = '';
-    const sb = statusBar();
-    root.appendChild(sb.el);
-    const onTable = el('div', 'on-table');
-    onTable.innerHTML = '<span class="label">On the table</span><span class="waiting">Waiting for the Medium…</span>';
-    root.appendChild(onTable);
-
-    const book = el('div', 'book');
+  // The book itself: page tabs plus the open page. Shared by the séance and the study screen.
+  function book(rules, smudged, startId = 'preface') {
+    const wrap = el('div', 'book');
     const tabs = el('nav', 'tabs');
     const page = el('article', 'page');
-    book.append(tabs, page);
-    root.appendChild(book);
+    wrap.append(tabs, page);
 
     const pages = [{ id: 'preface', title: 'Preface', html: preface(rules, smudged) }]
       .concat(G.BOOK_ORDER.map((id) => ({ id, title: G.relics[id].title, html: G.rules.page(rules, id, smudged) })));
@@ -141,13 +134,28 @@
       tabs.appendChild(b);
       tabBtns[p.id] = b;
     }
+    let current = null;
     function open(id) {
-      const p = pages.find((x) => x.id === id);
-      page.innerHTML = `<h2>${p.title}</h2>${p.html}<p class="edition">Grimoire · edition ${rules.edition}</p>`;
-      for (const k in tabBtns) tabBtns[k].classList.toggle('active', k === id);
+      const p = pages.find((x) => x.id === id) || pages[0];
+      current = p.id;
+      page.innerHTML = `<h2>${p.title}</h2>${p.html}<p class="edition">Grimoire · edition ${rules.edition}${smudged ? ' · smudged copy' : ''}</p>`;
+      for (const k in tabBtns) tabBtns[k].classList.toggle('active', k === p.id);
       page.scrollTop = 0;
     }
-    open('preface');
+    open(startId);
+    return { el: wrap, open, current: () => current };
+  }
+
+  function grimoire(root, rules, { smudged = false } = {}) {
+    root.innerHTML = '';
+    const sb = statusBar();
+    root.appendChild(sb.el);
+    const onTable = el('div', 'on-table');
+    onTable.innerHTML = '<span class="label">On the table</span><span class="waiting">Waiting for the Medium…</span>';
+    root.appendChild(onTable);
+    const bk = book(rules, smudged);
+    root.appendChild(bk.el);
+    const open = bk.open;
 
     let lastKey = '';
     return {
@@ -168,5 +176,36 @@
     };
   }
 
-  G.views = { seance, grimoire, fmt, NUMWORD };
+  // Study the book from the main menu, outside any room: pick an edition, optionally the smudged copy.
+  function study(root, { edition = 1, smudged = false, onChange } = {}) {
+    root.innerHTML = '';
+    const bar = el('div', 'study-bar');
+    bar.innerHTML = `
+      <button class="btn small study-back" type="button">← Main menu</button>
+      <label class="study-ed"><span class="label">Edition</span><input type="number" min="1" max="999" inputmode="numeric"></label>
+      <label class="study-smudge"><input type="checkbox"> <span>Smudged copy <small>(Damned)</small></span></label>`;
+    root.appendChild(bar);
+    root.appendChild(el('p', 'role-hint', 'Learn the rules before a séance. Edition 1 is the standard book; a room on another edition uses different rules.'));
+    const slot = el('div');
+    root.appendChild(slot);
+
+    const edIn = bar.querySelector('input[type=number]'), smIn = bar.querySelector('input[type=checkbox]');
+    edIn.value = edition;
+    smIn.checked = smudged;
+    let bk = null;
+    function draw() {
+      const ed = Math.max(1, Math.min(999, Math.round(+edIn.value) || 1));
+      edIn.value = ed;
+      const keep = bk ? bk.current() : 'preface';
+      bk = book(G.rules.build(ed), smIn.checked, keep);
+      slot.replaceChildren(bk.el);
+      if (onChange) onChange({ edition: ed, smudged: smIn.checked });
+    }
+    edIn.addEventListener('change', draw);
+    smIn.addEventListener('change', draw);
+    draw();
+    return { back: bar.querySelector('.study-back'), destroy: () => { root.innerHTML = ''; } };
+  }
+
+  G.views = { seance, grimoire, study, fmt, NUMWORD };
 })(globalThis.GR = globalThis.GR || {});

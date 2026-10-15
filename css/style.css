@@ -436,3 +436,16 @@ input, select {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---- Study (read the book from the main menu) ---- */
+.study-open { width: 100%; margin-top: 12px; }
+.study-bar {
+  display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap;
+  padding: 10px 14px; margin: 0 -4px 12px;
+  background: rgba(14, 10, 19, 0.92); border: 1px solid var(--line); border-radius: 12px;
+}
+.study-ed { display: flex; align-items: center; gap: 8px; }
+.study-ed input { width: 5.5em; padding: 6px 10px; }
+.study-smudge { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.study-smudge input { width: auto; accent-color: var(--candle); }
+.study-smudge small { color: var(--dim); }
