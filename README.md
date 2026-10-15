@@ -17,6 +17,8 @@ A co-op "one sees, the others read" party game. The **Medium** sits at a séance
 
 **Sound:** everything is synthesised in `js/audio.js` (no audio files). Effects and music run through separate buses into a shared stone-room reverb. The séance score is adaptive: `setIntensity({ wrath, strikes, remaining })` drives a drone, organ chords and a music box when calm, then a quickening heartbeat, trembling strings, a choir and a ticking clock as the wrath rises, with booms in the final 15 seconds and stingers at 50/75/90% wrath. Scholars hear the score and every offense or cleansing through the Medium's status updates. Menus get a quiet music-box version. Music and effects volumes (bottom-left 🔊) are saved per browser.
 
+**What Scholars see:** only the offense marks (the Music Box page depends on them). No timer, wrath meter, cleansed count or relic names, so the Medium has to describe the table. They still feel the wrath: the red vignette closes in and throbs faster, the screen shakes on offenses, glows on cleansings, and the music follows the Medium's séance.
+
 **Crossplay:** the app and the website are the same build. Every player's release stamp travels with them into a room; if anyone's differs from the host's, the lobby says who must reload and the séance can't start, so nobody plays with different rules.
 
 To play with friends elsewhere, the files need to be hosted somewhere public (GitHub Pages and itch.io HTML games are both free).

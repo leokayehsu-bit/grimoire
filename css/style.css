@@ -789,3 +789,11 @@ body.printing #app, body.printing #fx-vignette { display: none; }
 body.printing .sound-ctl { display: none; }
 .role-card .unseat { color: var(--candle); font-size: 0.8rem; min-height: 0; }
 .role-card .unseat:empty { display: none; }
+
+/* ---- Scholars feel the wrath instead of reading it ---- */
+.status-bar.scholar { justify-content: space-between; }
+.scholar-note { color: var(--dim); font-style: italic; font-size: 0.9rem; }
+body.in-seance #fx-vignette { animation: throb var(--pulse, 2.8s) ease-in-out infinite; }
+@keyframes throb { 0%, 100% { opacity: 1; } 50% { opacity: calc(0.85 - var(--wrath) * 0.45); } }
+.blessed { animation: blessed 1.2s ease-out; }
+@keyframes blessed { 0% { box-shadow: inset 0 0 0 0 rgba(159, 214, 200, 0); } 30% { box-shadow: inset 0 0 80px 10px rgba(159, 214, 200, 0.25); } 100% { box-shadow: inset 0 0 0 0 rgba(159, 214, 200, 0); } }

@@ -8,26 +8,35 @@
     return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
   }
 
-  function statusBar() {
-    const bar = el('div', 'status-bar');
-    bar.innerHTML = `
-      <div class="wrath"><span class="label">Wrath</span><div class="meter"><div class="fill"></div></div><span class="time">–:––</span></div>
-      <div class="strikes" title="Offenses"></div>
-      <div class="cleansed"></div>`;
+  // The Medium sees the wrath meter, the time and how many relics are cleansed. Scholars see only the
+  // offenses (the Music Box page needs them); they feel the wrath through the vignette, its pulse and the music.
+  function statusBar({ scholar = false } = {}) {
+    const bar = el('div', 'status-bar' + (scholar ? ' scholar' : ''));
+    bar.innerHTML = scholar
+      ? `<div class="strikes" title="Offenses"></div>
+         <span class="scholar-note">You cannot see the table — ask the Medium what is on it.</span>`
+      : `<div class="wrath"><span class="label">Wrath</span><div class="meter"><div class="fill"></div></div><span class="time">–:––</span></div>
+         <div class="strikes" title="Offenses"></div>
+         <div class="cleansed"></div>`;
     const fill = bar.querySelector('.fill'), time = bar.querySelector('.time');
     const strikes = bar.querySelector('.strikes'), cleansed = bar.querySelector('.cleansed');
     let lastStrikes = -1;
     function update(s) {
-      fill.style.width = (s.wrath * 100).toFixed(1) + '%';
-      time.textContent = fmt(s.remaining);
+      if (fill) fill.style.width = (s.wrath * 100).toFixed(1) + '%';
+      if (time) time.textContent = fmt(s.remaining);
       if (s.strikes !== lastStrikes) {
         strikes.innerHTML = '<span class="label">Offenses</span>' +
           Array.from({ length: s.maxStrikes }, (_, i) => `<span class="mark ${i < s.strikes ? 'on' : ''}">✕</span>`).join('');
         lastStrikes = s.strikes;
       }
-      const cleansable = s.relics.filter((r) => !r.needy);
-      cleansed.textContent = `${cleansable.filter((r) => r.solved).length} / ${cleansable.length} cleansed`;
+      if (cleansed) {
+        const cleansable = s.relics.filter((r) => !r.needy);
+        cleansed.textContent = `${cleansable.filter((r) => r.solved).length} / ${cleansable.length} cleansed`;
+      }
       document.body.style.setProperty('--wrath', s.wrath.toFixed(3));
+      // The vignette throbs like a pulse, quicker as the wrath rises (and quicker still near the end).
+      const urgency = Math.min(1, s.wrath + (s.remaining <= 15 ? 0.3 : 0));
+      document.body.style.setProperty('--pulse', (2.8 - 2.1 * urgency).toFixed(2) + 's');
     }
     return { el: bar, update };
   }
@@ -159,32 +168,25 @@
   // The Scholars' screen during a séance. `level` adds a banner with its name and rules.
   function grimoire(root, rules, { smudged = false, pages, fresh = [], banner = '' } = {}) {
     root.innerHTML = '';
-    const sb = statusBar();
+    const sb = statusBar({ scholar: true });
     root.appendChild(sb.el);
     if (banner) { const b = el('div', 'level-banner'); b.innerHTML = banner; root.appendChild(b); }
-    const onTable = el('div', 'on-table');
-    onTable.innerHTML = '<span class="label">On the table</span><span class="waiting">Waiting for the Medium…</span>';
-    root.appendChild(onTable);
-    const bk = book(rules, { pages, smudged, fresh, startId: fresh[0] || 'preface' });
+    const bk = book(rules, { pages, smudged, fresh });
     root.appendChild(bk.el);
-    const open = bk.open;
 
-    let lastKey = '';
+    const flash = (cls) => { root.classList.remove(cls); void root.offsetWidth; root.classList.add(cls); };
+    let last = null;
     return {
       status(s) {
         sb.update(s);
-        const key = s.relics.map((r) => r.id + (r.solved ? '+' : '')).join();
-        if (key === lastKey) return;
-        lastKey = key;
-        onTable.innerHTML = '<span class="label">On the table</span>';
-        for (const r of s.relics) {
-          const b = el('button', 'chip' + (r.solved ? ' done' : '') + (r.needy ? ' needy' : ''), (r.solved ? '✓ ' : '') + r.title);
-          b.type = 'button';
-          b.addEventListener('click', () => { if (G.audio) G.audio.pageTurn(); open(r.id); });
-          onTable.appendChild(b);
+        if (last) {
+          if (s.strikes > last.strikes) flash('shake');
+          const done = (x) => x.relics.filter((r) => r.solved).length;
+          if (done(s) > done(last)) flash('blessed');
         }
+        last = s;
       },
-      destroy: () => { root.innerHTML = ''; },
+      destroy: () => { root.innerHTML = ''; root.classList.remove('shake', 'blessed'); },
     };
   }
 

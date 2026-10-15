@@ -55,6 +55,7 @@
     document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('hidden', s.id !== 'screen-' + name));
     $('#btn-quit').classList.toggle('hidden', name !== 'medium' && name !== 'scholar');
     S.screen = name;
+    document.body.classList.toggle('in-seance', name === 'medium' || name === 'scholar');
     if (name === 'home') renderHomeProgress();
     if (name === 'home' || name === 'lobby' || name === 'study') audio.menuMusic(true);
     if (name !== 'medium' && name !== 'scholar') document.body.style.setProperty('--wrath', 0);
