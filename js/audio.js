@@ -436,6 +436,16 @@
       this.noise(0.25, { vol: 0.25, freq: 500, type: 'lowpass', attack: 0.004, at: 0.12 });
     }
 
+    // A boss arrives: a low gong, a choir of the dead swelling in, and a whisper of its name.
+    bossIntro() {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      [[55, 0.5], [110.5, 0.18], [166, 0.09], [227, 0.05]].forEach(([f, v]) => this.tone(f, { dur: 4.5, vol: v, attack: 0.01 }));
+      [st(-12), st(-9), st(-6), st(0)].forEach((f) => this.voice(f, t + 0.1, 3.2, { type: 'sawtooth', vol: 0.03, attack: 1.1, release: 1.6, detune: (Math.random() - 0.5) * 16, filters: [['bandpass', 650, 4], ['lowpass', 2200]], dest: this.sfx }));
+      this.noise(2.6, { vol: 0.08, freq: 260, q: 0.6, sweep: 1600, attack: 1.4 });
+      this.whisper(0.9);
+    }
+
     // A soft wooden tick for menu buttons.
     uiTap() {
       this.tone(430, { type: 'triangle', dur: 0.045, vol: 0.035, attack: 0.002 });

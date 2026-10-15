@@ -9,7 +9,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
 const RELIC_FILES = fs.readdirSync(path.join(ROOT, 'js/relics')).filter((f) => f.endsWith('.js')).map((f) => 'relics/' + f.slice(0, -3));
-const FILES = ['util', 'seance', 'kit', ...RELIC_FILES, 'rules', 'curses', 'levels', 'game'];
+const FILES = ['util', 'seance', 'kit', ...RELIC_FILES, 'rules', 'curses', 'bosses', 'levels', 'game'];
 const sandbox = vm.createContext({ console });
 for (const f of FILES) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sandbox, { filename: f + '.js' });
 const GR = sandbox.GR;
@@ -87,6 +87,28 @@ for (const lv of LEVELS) {
   if (fc.length !== 3 || new Set(fc).size !== 3) fail('a free séance with 2 curses on Damned should have 3 different curses');
   if (GR.levels.cursesFor(GR.levels.freeLevel(3, 0, 10, 2), 'damned', 7).length) fail('no curses before they are met');
   if (/undefined|NaN/.test(GR.curseFx.page(GR.levels.CURSE_ORDER, ['blackout']))) fail('the Curses page has a broken value');
+}
+
+// Bosses end chapters; daily séances are one fixed table per date.
+{
+  for (const [n, id] of Object.entries(GR.levels.BOSS_LEVELS)) {
+    const lv = LEVELS[n - 1];
+    if (!GR.BOSSES[id]) fail(`boss ${id} is not defined`);
+    if (n % 8 !== 0) fail(`boss ${id} is not on a chapter finale (level ${n})`);
+    if (lv.boss !== id) fail(`level ${n} lost its boss`);
+    for (const ph of GR.BOSSES[id].phases) if (!(ph.at >= 0 && ph.at < 1) || !['tear', 'scratch', 'turn', 'swap'].includes(ph.ev)) fail(`boss ${id} has a bad phase`);
+  }
+  const seeds = new Set();
+  for (let k = 0; k < 400; k++) {
+    const d = new Date(2026, 0, 1 + k), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const a = GR.levels.dailyLevel(date), b = GR.levels.dailyLevel(date);
+    if (JSON.stringify(a) !== JSON.stringify(b)) fail(`daily ${date} is not deterministic`);
+    if (a.count < 4 || a.count > 5 || a.edition < 2 || a.edition > 999) fail(`daily ${date} has bad terms`);
+    for (const c of a.curses) if (!GR.CURSES[c]) fail(`daily ${date} has an unknown curse`);
+    if (GR.levels.cursesFor(a, 'vengeful', a.seed).join() !== a.curses.join()) fail(`daily ${date}: curses changed at play time`);
+    seeds.add(a.seed);
+  }
+  if (seeds.size < 395) fail('daily séances repeat too often');
 }
 
 // Epitaphs must stay distinguishable with one word changed.
@@ -227,10 +249,12 @@ for (let s = 1; s <= SEANCES; s++) {
   const seed = Math.imul(s, 2654435761) >>> 0;
   const edition = 1 + (s % EDITIONS);
   const difficulty = DIFF_ORDER[s % 3];
-  const free = s % 10 === 0 ? { count: 2 + (s % 5), needy: s % 4, upTo: 1 + (s % LEVELS.length) } : null;
-  const level = free ? 0 : 1 + (Math.floor(s / 3) % LEVELS.length);
-  const opts = { seed, edition, difficulty, level, free };
-  const label = `seed ${seed} ed ${edition} ${free ? 'free' : 'level ' + level} ${difficulty}`;
+  const dailyDate = s % 25 === 0 ? `2027-${String(1 + (s % 12)).padStart(2, '0')}-${String(1 + (s % 28)).padStart(2, '0')}` : null;
+  const free = !dailyDate && s % 10 === 0 ? { count: 2 + (s % 5), needy: s % 4, upTo: 1 + (s % LEVELS.length) } : null;
+  const level = free || dailyDate ? 0 : 1 + (Math.floor(s / 3) % LEVELS.length);
+  const dl = dailyDate ? GR.levels.dailyLevel(dailyDate) : null;
+  const opts = dl ? { seed: dl.seed, edition: dl.edition, difficulty: 'vengeful', level: 0, free: null, daily: dailyDate } : { seed, edition, difficulty, level, free };
+  const label = `seed ${opts.seed} ed ${opts.edition} ${dailyDate ? 'daily ' + dailyDate : free ? 'free' : 'level ' + level} ${opts.difficulty}`;
   const g = new GR.Game(opts);
   let ended = null;
   g.on('end', (x) => { ended = x; });
@@ -248,7 +272,7 @@ for (let s = 1; s <= SEANCES; s++) {
   if (g.relics.filter((r) => r.needy).map((r) => r.id).join() !== lv.needy.join()) fail(`${label}: wrong needy relics`);
   if (!lv.free && lv.intro && !GR.relics[lv.intro].needy && !cleansable.some((r) => r.id === lv.intro)) fail(`${label}: the new relic is missing`);
   for (const r of cleansable) if (!pool.includes(r.id)) fail(`${label}: ${r.id} appears before it is introduced`);
-  if (g.maxStrikes !== GR.levels.terms(lv, difficulty).offenses) fail(`${label}: wrong offense limit`);
+  if (g.maxStrikes !== GR.levels.terms(lv, opts.difficulty).offenses) fail(`${label}: wrong offense limit`);
 
   // A perfect Medium, sometimes making deliberate mistakes (but never enough to lose).
   const mistakes = s % 4 === 0 ? Math.min(2, g.maxStrikes - 1) : 0;
@@ -272,7 +296,8 @@ for (let s = 1; s <= SEANCES; s++) {
   if (!g.result || g.result.result !== 'win') fail(`${label}: perfect play did not win`);
   else stats.wins++;
   if (ended && ended.total !== cleansable.length) fail(`${label}: needy relics counted toward the win`);
-  if (ended && ended.level !== (free ? 0 : level)) fail(`${label}: the end report has the wrong level`);
+  if (ended && ended.level !== (free || dailyDate ? 0 : level)) fail(`${label}: the end report has the wrong level`);
+  if (ended && (ended.daily || null) !== dailyDate) fail(`${label}: the end report has the wrong daily date`);
 
   if (s % 3 === 0) needyChecks(opts, label);
 

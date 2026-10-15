@@ -58,7 +58,7 @@
     const sb = statusBar();
     root.appendChild(sb.el);
     root.appendChild(el('p', 'role-hint', 'You are the Medium. Describe everything you see — you may not read the grimoire.'));
-    if (game.curses.length) root.appendChild(curseChips(game.curses));
+    if (game.curses.length || game.boss) root.appendChild(curseChips(game.curses, game.boss));
     // The séance table: a wooden top lit by candles from above, with the relics laid out on it.
     const table = el('div', 'seance-table');
     table.innerHTML = '<div class="table-glow" aria-hidden="true"></div>';
@@ -86,6 +86,7 @@
     });
 
     const fx = G.curseFx.medium(root, game.curses, { audio, game, rng: G.util.makeRng((game.seed ^ 0x5EA7) >>> 0) });
+    const boss = G.bosses.medium(root, game.boss, { game, audio, rules: game.rules });
 
     game.on('strike', () => {
       audio.strike();
@@ -99,11 +100,13 @@
     });
 
     return {
+      extraStatus: () => boss.status(),
       update: () => {
+        boss.update();
         sb.update(game.status());
         handles.forEach((x) => x.h.update && x.h.update());
       },
-      destroy: () => { fx.destroy(); motes.stop(); handles.forEach((x) => x.h.destroy && x.h.destroy()); root.innerHTML = ''; root.classList.remove('shake'); },
+      destroy: () => { fx.destroy(); boss.destroy(); motes.stop(); handles.forEach((x) => x.h.destroy && x.h.destroy()); root.innerHTML = ''; root.classList.remove('shake'); },
     };
   }
 
@@ -139,9 +142,12 @@
     return { stop: () => cancelAnimationFrame(raf) };
   }
 
-  function curseChips(ids) {
+  function curseChips(ids, boss = null) {
     const row = el('div', 'curse-row');
-    row.innerHTML = '<span class="label">Cursed</span>' + ids.map((id) => `<span class="curse-chip" title="${esc(G.CURSES[id].desc)}">${G.CURSES[id].glyph} ${G.CURSES[id].name}</span>`).join('');
+    const b = boss && G.BOSSES[boss];
+    row.innerHTML = (b ? `<span class="boss-chip" title="${esc(b.desc)}">${b.glyph} ${b.name}</span>` : '') +
+      (ids.length ? '<span class="label">Cursed</span>' : '') +
+      ids.map((id) => `<span class="curse-chip" title="${esc(G.CURSES[id].desc)}">${G.CURSES[id].glyph} ${G.CURSES[id].name}</span>`).join('');
     return row;
   }
 
@@ -172,9 +178,11 @@
       <p class="note">This is edition ${rules.edition} of the grimoire.</p>${G.rules.prefaceNotes(sm)}`;
   }
 
+  const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+
   // The book itself: page tabs plus the open page. Shared by the séance and the study screen.
   // pages: relic ids in the book; locked: ids shown as locked tabs; fresh: ids marked New.
-  function book(rules, { pages = G.BOOK_ORDER, smudged = false, locked = [], fresh = [], startId = 'preface', curses = [], activeCurses = [] } = {}) {
+  function book(rules, { pages = G.BOOK_ORDER, smudged = false, locked = [], fresh = [], startId = 'preface', curses = [], activeCurses = [], boss = null } = {}) {
     const wrap = el('div', 'book');
     const tabs = el('nav', 'tabs');
     const page = el('article', 'page');
@@ -182,7 +190,7 @@
 
     const sm = smudged ? G.rules.smudges(rules, pages) : null;
     const entries = [{ id: 'preface', title: 'Preface', html: () => preface(rules, sm) }]
-      .concat(curses.length ? [{ id: 'curses', title: 'Curses', html: () => G.curseFx.page(curses, activeCurses), fresh: activeCurses.some((c) => fresh.includes(c)) }] : [])
+      .concat(curses.length || boss ? [{ id: 'curses', title: boss ? 'Curses & the boss' : 'Curses', html: () => (boss ? G.bosses.page(boss) : '') + G.curseFx.page(curses, activeCurses), fresh: boss || activeCurses.some((c) => fresh.includes(c)) }] : [])
       .concat(pages.map((id) => ({ id, title: G.relics[id].title, html: () => G.rules.page(rules, id, sm), fresh: fresh.includes(id) })));
     const tabBtns = {};
     for (const p of entries) {
@@ -200,27 +208,57 @@
       b.title = 'Reach this level to unlock its page';
       tabs.appendChild(b);
     }
-    let current = null;
+    let current = null, scratched = false, torn = null;
+    const isRelic = (id) => pages.includes(id);
     function open(id) {
       const p = entries.find((x) => x.id === id) || entries[0];
       current = p.id;
-      page.innerHTML = `<h2>${p.title}</h2>${p.html()}<p class="edition">Grimoire · edition ${rules.edition}${smudged ? ' · smudged copy' : ''}</p>`;
+      const head = scratched && isRelic(p.id) ? '<h2 class="scratched" aria-label="A title scratched away">▒▒▒▒▒▒▒▒</h2>' : `<h2>${p.title}</h2>`;
+      const body = p.id === torn
+        ? `<div class="torn-notice"><p class="tn-big">✂ This page has been torn out.</p>
+             <p>The spirit left it on the Medium's table. Ask the Medium to read it to you — every word.
+             It returns to the book once this relic is cleansed.</p></div>`
+        : p.html();
+      page.innerHTML = `${head}${body}<p class="edition">Grimoire · edition ${rules.edition}${smudged ? ' · smudged copy' : ''}</p>`;
       for (const k in tabBtns) tabBtns[k].classList.toggle('active', k === p.id);
       page.scrollTop = 0;
     }
+    // Boss: every relic title scratched away and the relic tabs shuffled (pages are found by content).
+    function scratch() {
+      if (scratched) return;
+      scratched = true;
+      const relicTabs = pages.map((id) => tabBtns[id]).filter(Boolean);
+      const after = relicTabs.length ? relicTabs[relicTabs.length - 1].nextSibling : null; // the locked tabs, if any
+      const shuffled = relicTabs.map((t) => [Math.random(), t]).sort((x, y) => x[0] - y[0]).map((x) => x[1]);
+      shuffled.forEach((t, i) => {
+        t.textContent = `Page ${ROMAN[i] || i + 1}`;
+        t.classList.add('scratched-tab');
+        t.classList.remove('fresh');
+        tabs.insertBefore(t, after);
+      });
+      open(current);
+    }
+    // Boss: one relic page torn out (null puts it back).
+    function tear(id) {
+      if (torn && tabBtns[torn]) tabBtns[torn].classList.remove('torn');
+      torn = id && tabBtns[id] ? id : null;
+      if (torn) tabBtns[torn].classList.add('torn');
+      if (current === torn || (!torn && current)) open(current);
+    }
     open(startId);
-    return { el: wrap, open, current: () => current };
+    return { el: wrap, open, current: () => current, scratch, tear };
   }
 
   // The Scholars' screen during a séance. `level` adds a banner with its name and rules.
-  function grimoire(root, rules, { smudged = false, pages, fresh = [], banner = '', curses = [], activeCurses = [] } = {}) {
+  function grimoire(root, rules, { smudged = false, pages, fresh = [], banner = '', curses = [], activeCurses = [], boss = null } = {}) {
     root.innerHTML = '';
     const sb = statusBar({ scholar: true });
     root.appendChild(sb.el);
     if (banner) { const b = el('div', 'level-banner'); b.innerHTML = banner; root.appendChild(b); }
-    if (activeCurses.length) root.appendChild(curseChips(activeCurses));
-    const bk = book(rules, { pages, smudged, fresh, curses, activeCurses });
+    if (activeCurses.length || boss) root.appendChild(curseChips(activeCurses, boss));
+    const bk = book(rules, { pages, smudged, fresh, curses, activeCurses, boss });
     root.appendChild(bk.el);
+    const bossFx = G.bosses.scholar(root, boss, { audio: G.audio, book: bk });
     const fx = G.curseFx.scholar(root, activeCurses, { audio: G.audio, book: bk, pages: (curses.length ? ['curses'] : []).concat(pages) });
 
     const flash = (cls) => { root.classList.remove(cls); void root.offsetWidth; root.classList.add(cls); };
@@ -228,6 +266,7 @@
     return {
       status(s) {
         sb.update(s);
+        bossFx.status(s);
         if (last) {
           if (s.strikes > last.strikes) flash('shake');
           const done = (x) => x.relics.filter((r) => r.solved).length;

@@ -6,12 +6,15 @@
 
   class Game {
     // { seed, edition, difficulty, level } or { ..., free: { count, needy, upTo } } for a free séance.
-    constructor({ seed, edition, difficulty, level, free }) {
+    constructor({ seed, edition, difficulty, level, free, daily }) {
       const rng = makeRng(seed);
       this.seed = seed;
       this.edition = edition;
       this.difficulty = difficulty;
-      this.level = free ? G.levels.freeLevel(free.count, free.needy, free.upTo, free.curses) : G.levels.get(level) || G.levels.get(1);
+      this.level = daily ? G.levels.dailyLevel(daily)
+        : free ? G.levels.freeLevel(free.count, free.needy, free.upTo, free.curses)
+          : G.levels.get(level) || G.levels.get(1);
+      this.boss = this.level.boss || null;
       this.curses = G.levels.cursesFor(this.level, difficulty, seed);
       this.rules = G.rules.build(edition);
       this.ctx = G.seance.generate(rng);
@@ -89,6 +92,7 @@
         level: this.level.free ? 0 : this.level.n,
         levelName: this.level.name,
         difficulty: this.difficulty,
+        daily: this.level.daily || null,
       });
     }
 

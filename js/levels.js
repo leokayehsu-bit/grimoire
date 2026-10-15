@@ -22,7 +22,7 @@
     L(0, 'The Board Speaks', 'The planchette is moving on its own. Read every letter the Spirit Board spells — some words look alike.', 2, 240, 3, 'ouija'),
     L(0, 'Parlour Games', 'Three relics at once for the first time. Decide who reads which page.', 3, 300, 3),
     L(0, 'The Dollhouse', "A child's dollhouse, its windows lighting up one by one. Describe which windows glow.", 2, 210, 3, 'dollhouse'),
-    L(0, "The Widow's Parlour", 'The parlour at full strength. Four relics, and the widow is watching.', 4, 330, 3),
+    L(0, "The Widow's Parlour", 'The widow herself has come to the séance. Four relics — and when she grows angry, she will tear a page from your book.', 4, 360, 3),
 
     L(1, 'Locked Away', 'A diary bound shut with a three-dial lock. The symbols on its cover are the key to the code.', 2, 240, 3, 'diary'),
     L(1, 'Marginalia', 'Three relics among the stacks. Work steadily.', 3, 270, 3),
@@ -31,7 +31,7 @@
     L(1, 'For Whom It Tolls', 'A bell with a coloured ribbon tolls on its own. Count every toll and ring it back.', 2, 210, 3, 'bell'),
     L(1, 'Silence in the Stacks', 'Four relics and a ticking clock. Keep your voices low and your answers quick.', 4, 330, 3),
     L(1, 'Playtime', 'A porcelain doll sits in the reading chair. It cannot be cleansed — only soothed when it whispers.', 2, 270, 3, 'doll', ['doll']),
-    L(1, 'The Restless Library', 'Four relics while the doll whispers. Someone must always keep an ear on her.', 4, 360, 3, null, ['doll']),
+    L(1, 'The Restless Library', 'The Librarian guards these stacks. Four relics and the doll — and before long, every title in your book is scratched away.', 4, 390, 3, null, ['doll']),
 
     L(2, 'Through the Glass', 'The chapel mirror shows a word written backwards in the fog. Read it right to left.', 2, 240, 3, 'mirror'),
     L(2, 'Reflections', 'Three relics under the chapel windows — and the candles keep dying. Describe the table while you still can.', 3, 270, 3),
@@ -40,7 +40,7 @@
     L(2, "The Seer's Ball", 'A crystal ball swirls through colours. Watch which colour comes first and which comes last.', 2, 240, 3, 'crystal'),
     L(2, 'Stained Glass', 'Four relics. Two mistakes. Something in the chapel keeps turning the pages of your book.', 4, 330, 2),
     L(2, 'Lamplighter', 'An old lantern gutters and changes colour. Tend its flame before it goes out.', 2, 270, 3, 'lantern', ['lantern']),
-    L(2, 'Midnight Mass', 'Four relics, the doll and the lantern all at once. Divide and conquer.', 4, 390, 3, null, ['doll', 'lantern']),
+    L(2, 'Midnight Mass', 'The Abbess leads a mass for the dead. Four relics, the doll and the lantern — and halfway through, she turns the whole table over.', 4, 420, 3, null, ['doll', 'lantern']),
 
     L(3, 'The Gramophone', 'A gramophone with a record already on. Set the speed and drop the needle in the right groove.', 2, 240, 3, 'gramophone'),
     L(3, 'Dust and Records', 'An old dressing mirror leans over the table. Everything the Medium sees is backwards.', 3, 270, 3),
@@ -49,7 +49,7 @@
     L(3, 'Knucklebones', 'Three carved bones, cast like dice. Keep one, and only one.', 2, 210, 3, 'knucklebones'),
     L(3, 'Nobody Plays Up Here', 'Four relics, two mistakes, and the doll has followed you upstairs. Something whispers lies to the Medium.', 4, 330, 2, null, ['doll']),
     L(3, 'Something at the Door', 'Someone is knocking at the attic door. Count the knocks and look at the light beneath it.', 2, 270, 3, 'door', ['door']),
-    L(3, 'The Attic Wakes', 'Five relics, the lantern and the door. The whole attic is awake.', 5, 420, 3, null, ['lantern', 'door']),
+    L(3, 'The Attic Wakes', 'The Collector has been rearranging the attic. Five relics, the lantern and the door — and every nameplate is wrong.', 5, 450, 3, null, ['lantern', 'door']),
 
     L(4, 'Nevermore', 'A raven waits on a coffin lid with something in its beak. It wants an offering.', 2, 240, 3, 'raven'),
     L(4, 'Down the Stair', 'Four relics at the bottom of the crypt stair, where no clock has ever ticked.', 4, 300, 3),
@@ -58,20 +58,24 @@
     L(4, 'The Circle', 'A broken circle of salt. Seal its gaps in exactly the right order.', 2, 240, 3, 'salt'),
     L(4, 'Bitter Remedies', "The apothecary's shelf. Two ingredients, added in the right order, will quiet the spirit.", 2, 240, 3, 'apothecary'),
     L(4, 'In the Dark', 'The last candle in the crypt is guttering out. Four relics, and only a pool of light to find them by.', 4, 330, 2),
-    L(4, 'The Last Séance', 'Six relics. The doll, the lantern and the door. Everything you have learned, all at once.', 6, 480, 3, null, ['doll', 'lantern', 'door']),
+    L(4, 'The Last Séance', 'The spirit itself, unbound. Six relics, the doll and the door — and everything its servants did to you, one after another.', 6, 540, 3, null, ['doll', 'door']),
   ];
   LEVELS.forEach((lv, i) => { lv.n = i + 1; lv.curses = []; lv.curseIntro = null; });
 
   // Curses arrive after the Library: each is introduced alone, then mixed into later levels.
   const CURSE_LEVELS = {
-    18: ['blackout'], 20: ['blackout'], 22: ['poltergeist'], 24: ['blackout', 'poltergeist'],
-    26: ['mirror'], 28: ['poltergeist'], 30: ['lies'], 32: ['mirror', 'blackout'],
-    34: ['silent'], 36: ['lies', 'poltergeist'], 39: ['darkness'], 40: ['poltergeist', 'lies', 'darkness'],
+    18: ['blackout'], 20: ['blackout'], 22: ['poltergeist'], 24: ['blackout'],
+    26: ['mirror'], 28: ['poltergeist'], 30: ['lies'], 32: ['blackout'],
+    34: ['silent'], 36: ['lies', 'poltergeist'], 39: ['darkness'], 40: ['lies'],
   };
   const CURSE_INTRO = { blackout: 18, poltergeist: 22, mirror: 26, lies: 30, silent: 34, darkness: 39 };
   for (const [n, list] of Object.entries(CURSE_LEVELS)) LEVELS[n - 1].curses = list;
   for (const [id, n] of Object.entries(CURSE_INTRO)) LEVELS[n - 1].curseIntro = id;
   const CURSE_ORDER = Object.keys(CURSE_INTRO).sort((a, b) => CURSE_INTRO[a] - CURSE_INTRO[b]);
+
+  // Each chapter ends with a boss: a named spirit with its own twist (js/bosses.js).
+  const BOSS_LEVELS = { 8: 'widow', 16: 'librarian', 24: 'abbess', 32: 'collector', 40: 'unbound' };
+  LEVELS.forEach((lv) => { lv.boss = BOSS_LEVELS[lv.n] || null; });
   const cursesKnown = (upTo) => CURSE_ORDER.filter((id) => CURSE_INTRO[id] <= upTo);
 
   // Book order = the order relics are introduced. Every relic must be introduced exactly once.
@@ -117,7 +121,7 @@
   function cursesFor(lv, difficulty, seed) {
     const known = cursesKnown(lv.free ? lv.bookUpTo : lv.n);
     const pick = (list, salt) => list[G.util.hash(`curse/${seed}/${salt}`) % list.length];
-    const out = lv.free ? [] : lv.curses.slice();
+    const out = lv.free && !lv.daily ? [] : lv.curses.slice();
     for (let k = 0; k < (lv.freeCurses || 0); k++) out.push(pick(known.filter((id) => !out.includes(id)), 'free' + k));
     if (difficulty === 'damned') {
       const extra = known.filter((id) => !out.includes(id));
@@ -125,6 +129,26 @@
     }
     return out;
   }
+
+  // The daily séance: one table per calendar day, the same for everyone — any relic, any curse, its own
+  // grimoire edition and seed, always at Vengeful. date is 'YYYY-MM-DD'.
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function dailyLevel(date) {
+    const rng = G.util.makeRng(G.util.hash('grimoire-daily/' + date));
+    const needies = INTRO.filter(isNeedy);
+    const count = rng.int(4, 5);
+    const needy = rng.chance(0.6) ? [rng.pick(needies)] : [];
+    const curses = rng.chance(0.65) ? [rng.pick(CURSE_ORDER)] : [];
+    const [y, mo, d] = date.split('-').map(Number);
+    return {
+      n: 0, free: true, daily: date, chapter: -1, name: 'Daily Séance',
+      desc: `${d} ${MONTHS[mo - 1]} ${y}: the same table for everyone today. Any relic you know — and some you may not.`,
+      count, time: round15(70 + 70 * count + 30 * needy.length + 30 * curses.length), offenses: 3,
+      intro: null, needy, bookUpTo: LEVELS.length, curses, freeCurses: 0, curseIntro: null, boss: null,
+      edition: rng.int(2, 999), seed: G.util.hash('grimoire-daily-seed/' + date),
+    };
+  }
+  const today = () => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; };
 
   // What a level looks like at a difficulty: the numbers shown on its card.
   function terms(lv, difficulty) {
@@ -199,5 +223,5 @@
 
   function get(n) { return LEVELS[n - 1] || null; }
 
-  G.levels = { CHAPTERS, LEVELS, INTRO, introLevel, DIFFICULTY, DIFF_ORDER, book, freeLevel, terms, plan, progress, get, round15, rating, fastTime, cursesFor, cursesKnown, CURSE_INTRO, CURSE_ORDER };
+  G.levels = { CHAPTERS, LEVELS, INTRO, introLevel, DIFFICULTY, DIFF_ORDER, book, freeLevel, terms, plan, progress, get, round15, rating, fastTime, cursesFor, cursesKnown, CURSE_INTRO, CURSE_ORDER, BOSS_LEVELS, dailyLevel, today };
 })(globalThis.GR = globalThis.GR || {});

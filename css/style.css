@@ -1023,3 +1023,48 @@ body.dying .sound-ctl, body.dying .quit { visibility: hidden; }
 /* Jumpscares off: a slow fade to dark red and the verdict, nothing lunges. */
 .death.dz-gentle .dz-black { transition: opacity 0.9s ease-in; }
 .death.dz-gentle.dz-verdict .dz-red { opacity: 1; transition: opacity 1.4s; background: radial-gradient(ellipse at center, rgba(90, 0, 8, 0.6), #070002 75%); }
+
+/* ======================================================================
+   Bosses
+   ====================================================================== */
+.boss-chip { font-family: var(--sc); font-size: 0.9rem; color: #1a0a06; background: linear-gradient(180deg, #e9c46a, #b8892e); border-radius: 20px; padding: 2px 12px; box-shadow: 0 0 14px rgba(233, 196, 106, 0.35); cursor: help; }
+.lc-boss { color: #e9c46a; margin: 0 0 8px; font-size: 0.92rem; }
+.ll-row.boss .ll-n { color: #e9c46a; }
+.ll-boss { color: #e9c46a !important; }
+.ll-daily { border-top: 0; margin-bottom: 6px; }
+.ll-daily .ll-n { color: #f3d27a; font-size: 1.1rem; }
+
+.boss-banner { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; pointer-events: none; animation: bossIn 0.5s ease-out; }
+.boss-banner.out { opacity: 0; transition: opacity 0.7s; }
+.boss-banner .bb-inner { text-align: center; max-width: min(90vw, 720px); padding: 22px 26px; background: radial-gradient(ellipse at center, rgba(20, 4, 6, 0.92), rgba(10, 2, 4, 0.75) 70%, transparent); }
+.boss-banner h2 { font-family: var(--sc); color: #f0c060; font-size: clamp(1.6rem, 6vw, 3.2rem); margin: 0; letter-spacing: 0.06em; text-shadow: 0 0 26px rgba(255, 120, 40, 0.55), 0 2px 0 #2a0a00; }
+.boss-banner p { color: #e8d6c8; font-style: italic; margin: 10px auto 0; max-width: 560px; }
+.boss-banner.intro h2 { font-size: clamp(2.2rem, 9vw, 4.6rem); }
+.boss-banner.event h2 { color: #ff8a6a; font-size: clamp(1.3rem, 4.6vw, 2.3rem); }
+@keyframes bossIn { from { opacity: 0; transform: scale(1.12); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+
+/* The Widow: the torn page, on the Medium's table. */
+.torn-page { position: relative; margin: 0 0 14px; padding: 10px; background: #2a1c10; border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); transform: rotate(-0.6deg); animation: bossIn 0.6s ease-out; }
+.torn-page .tp-tag { display: inline-block; font-family: var(--sc); color: #ffb09a; margin: 0 0 8px; }
+.torn-page .page { min-height: 0; max-height: 46vh; overflow: auto; clip-path: polygon(0 2%, 4% 0, 9% 2%, 15% 0, 22% 1.5%, 30% 0, 38% 2%, 47% 0, 55% 1.5%, 63% 0, 72% 2%, 80% 0, 88% 1.5%, 95% 0, 100% 2%, 100% 98%, 94% 100%, 86% 98%, 78% 100%, 70% 98.5%, 61% 100%, 52% 98%, 44% 100%, 35% 98.5%, 27% 100%, 18% 98%, 10% 100%, 3% 98.5%, 0 100%); }
+.torn-page.mended { opacity: 0; transform: translateY(-20px) rotate(-3deg); transition: all 0.8s; }
+
+/* The Librarian: scratched-out titles. */
+.tab.scratched-tab { font-style: italic; color: #b9a07a; }
+.page h2.scratched { color: #5a3a22; letter-spacing: -0.1em; }
+.tab.torn { text-decoration: line-through; color: #c97a6a; }
+.tab.torn::before { content: '✂ '; text-decoration: none; }
+.torn-notice { text-align: center; padding: 30px 10px; }
+.torn-notice .tn-big { font-family: var(--sc); font-size: 1.5rem; color: #7a1f12; }
+
+/* The Abbess: the table turned upside down (and combined with the Looking-Glass). */
+.seance-table .relics, .seance-table .seance-ctx { transition: transform 1.4s cubic-bezier(0.6, 0, 0.3, 1); }
+.boss-turned .relics, .boss-turned .seance-ctx { transform: rotate(180deg); }
+.curse-mirror.boss-turned .relics, .curse-mirror.boss-turned .seance-ctx { transform: scaleY(-1); }
+
+/* The Collector: swapped nameplates look tarnished. */
+#screen-medium .relic h3.swapped { background: linear-gradient(180deg, #b9a77a, #7d6a3a 55%, #5a4a22); }
+
+/* Daily séance sharing. */
+.share-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; margin: 10px 0 0; color: var(--dim); font-size: 0.9rem; }
+.home-progress { line-height: 1.7; }

@@ -72,6 +72,24 @@ Damned adds one more curse you have met; free séances can add 0–2 at random. 
 
 **Losing:** when the spirit wins (wrath or offenses), everyone watches it claim them — candles die, its face flickers in red, lunges at the glass with a scream, the glass cracks, and the verdict bleeds in (`js/death.js`, `audio.death()`), before the end screen. A click skips it. Settings → Jumpscares (on by default, per device) turns it into a gentle fade to dark red with the verdict and no face, flash or scream.
 
+## Bosses
+
+Each chapter ends with a boss (`js/bosses.js`, `BOSS_LEVELS` in `js/levels.js`). Twists strike at set points of the wrath and are always recoverable by talking — nothing is ever lost, only moved, hidden or turned:
+
+| Level | Boss | Twist |
+| --- | --- | --- |
+| 8 | The Widow | tears a Scholar page out; the Medium gets it and reads it aloud until that relic is cleansed |
+| 16 | The Librarian | scratches out every page title and shuffles the tabs; pages are found by their content |
+| 24 | The Abbess | turns the Medium's table upside down |
+| 32 | The Collector | swaps every nameplate on the Medium's table |
+| 40 | The Spirit Unbound | all of the above in phases |
+
+The Medium's browser owns the timing and reports `torn` and `bossFired` in its status so the Scholars' book follows.
+
+## Daily séance
+
+`G.levels.dailyLevel('YYYY-MM-DD')` builds one table per day from the date alone — relics, needy relic, curse, grimoire edition and seed — so everyone gets the same séance. It's in the level list ("Today's séance"), always Vengeful, with every page in the book. Each browser keeps its best result per day (`grimoire.daily.v1`), a streak, and a share line for the end screen.
+
 ## Relics
 
 Cleansed: Ritual Candles, Tarot Spread, Spirit Board, Haunted Dollhouse, Locked Diary, Music Box, Spirit Bell, Haunted Mirror, Weathered Headstone, Crystal Ball, Gramophone, Pendulum, Knucklebones, The Raven, Palm Reading, Salt Circle (multi-step), Apothecary Shelf (multi-step).

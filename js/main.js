@@ -47,6 +47,25 @@
     return P.empty();
   }
   function saveProgress(p) { if (!params.has('unlockall')) store('progress.v1', JSON.stringify(p)); }
+
+  // Daily séance results: { results: { 'YYYY-MM-DD': { time, strikes, candles } } } (best per day).
+  function getDaily() {
+    try { const d = JSON.parse(load('daily.v1')); if (d && d.results) return d; } catch (e) { /* none yet */ }
+    return { results: {} };
+  }
+  const dayKey = (t) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  // Consecutive days with a cleared daily, counting back from today (or yesterday, if today is still to play).
+  function dailyStreak(d) {
+    const t = new Date();
+    if (!d.results[dayKey(t)]) t.setDate(t.getDate() - 1);
+    let n = 0;
+    while (d.results[dayKey(t)]) { n++; t.setDate(t.getDate() - 1); }
+    return n;
+  }
+  const prettyDay = (date) => { const [y, m, d] = date.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'long' }); };
+  function shareText(date, r) {
+    return `Grimoire Daily · ${prettyDay(date)} — ${fmt(r.time)}, ${r.strikes ? `${r.strikes} offense${r.strikes === 1 ? '' : 's'}` : 'no offenses'} ${'🕯️'.repeat(r.candles)}\n${location.origin}${location.pathname}`;
+  }
   const fmt = (sec) => G.views.fmt(sec);
   const candleRow = (n, cls = '') => `<span class="candles ${cls}" aria-label="${n} of 3 candles">${[1, 2, 3].map((k) => `<i class="${k <= n ? 'lit' : ''}"></i>`).join('')}</span>`;
   const DLABEL = (d) => G.levels.DIFFICULTY[d].label;
@@ -122,9 +141,9 @@
     const st = S.settings;
     const lv = currentLevel(st);
     const t = G.levels.terms(lv, st.difficulty);
-    const all = $('#print-all').checked;
+    const all = $('#print-all').checked || !!lv.daily;
     const pages = all ? G.BOOK_ORDER : G.levels.book(st.upTo);
-    $('#print-note').textContent = `Edition ${st.edition} · ${pages.length} relic page${pages.length === 1 ? '' : 's'} · ${t.smudged ? 'smudged copy (for Damned)' : 'clean copy'}`;
+    $('#print-note').textContent = `Edition ${lv.daily ? lv.edition : st.edition} · ${pages.length} relic page${pages.length === 1 ? '' : 's'} · ${t.smudged ? 'smudged copy (for Damned)' : 'clean copy'}`;
     // A level that adds a page the last printout may not have: offer just that page.
     const box = $('#print-new');
     const fresh = !lv.free && lv.intro;
@@ -310,13 +329,15 @@
   function hostStart() {
     if (!S.isHost || S.current || startCheck()) return;
     audio.unlock();
+    const st = S.settings, daily = st.daily ? G.levels.dailyLevel(st.daily) : null;
     const m = {
       t: 'start',
-      seed: (Math.random() * 4294967296) >>> 0,
-      edition: S.settings.edition,
-      difficulty: S.settings.difficulty,
-      level: S.settings.free ? 0 : S.settings.level,
-      free: S.settings.free ? Object.assign({ upTo: S.settings.upTo }, S.settings.free) : null,
+      seed: daily ? daily.seed : (Math.random() * 4294967296) >>> 0,
+      edition: daily ? daily.edition : st.edition,
+      difficulty: daily ? 'vengeful' : st.difficulty,
+      level: st.free || daily ? 0 : st.level,
+      free: st.free ? Object.assign({ upTo: st.upTo }, st.free) : null,
+      daily: st.daily || null,
       mediumId: S.players.find((p) => p.role === 'medium').id,
     };
     store('lastLevel', S.settings.level);
@@ -374,6 +395,8 @@
         b.addEventListener('click', () => hostSetting('difficulty', d));
         seg.appendChild(b);
       }
+      $('#diff-seg').closest('.field').classList.toggle('hidden', !!st.daily);
+      document.querySelector('.more-opts').classList.toggle('hidden', !!st.daily);
       $('#free-opts').classList.toggle('hidden', !st.free);
       if (st.free) {
         const avail = G.levels.book(st.upTo);
@@ -427,7 +450,17 @@
   }
 
   function currentLevel(st) {
+    if (st.daily) return G.levels.dailyLevel(st.daily);
     return st.free ? G.levels.freeLevel(st.free.count, st.free.needy, st.upTo, st.free.curses || 0) : G.levels.get(st.level);
+  }
+  const levelFor = (m) => (m.daily ? G.levels.dailyLevel(m.daily)
+    : m.free ? G.levels.freeLevel(m.free.count, m.free.needy, m.free.upTo, m.free.curses || 0) : G.levels.get(m.level));
+
+  // Pick what the room plays: a campaign level, a free séance or today's daily (one settings update).
+  function chooseMode(patch) {
+    if (!S.isHost || S.current) return;
+    S.settings = Object.assign({}, S.settings, { free: null, daily: null }, patch);
+    broadcastLobby();
   }
 
   // The card for the chosen level, at the chosen difficulty: name, story, and its terms.
@@ -436,20 +469,21 @@
     if (!lv) return '';
     const t = G.levels.terms(lv, st.difficulty);
     const d = G.levels.DIFFICULTY[st.difficulty];
-    const where = lv.free ? 'Free séance' : `${G.levels.CHAPTERS[lv.chapter].name} · Level ${lv.n} of ${G.levels.LEVELS.length}`;
+    const where = lv.daily ? `☀ Today's séance · ${prettyDay(lv.daily)}` : lv.free ? 'Free séance' : `${G.levels.CHAPTERS[lv.chapter].name} · Level ${lv.n} of ${G.levels.LEVELS.length}${lv.boss ? ' · Boss' : ''}`;
     const needy = lv.needy.length ? `<div><dt>To soothe</dt><dd>${lv.needy.map((id) => G.relics[id].title).join(', ')}</dd></div>` : '';
     return `<span class="cap">${where}</span>
       <h3>${esc(lv.name)}</h3>
       <p class="lc-desc">${esc(lv.desc)}</p>
       ${lv.intro ? `<p class="lc-new">✦ New grimoire page: <b>${G.relics[lv.intro].title}</b></p>` : ''}
       ${lv.curseIntro ? `<p class="lc-curse">☠ New curse: <b>${G.CURSES[lv.curseIntro].name}</b> — ${esc(G.CURSES[lv.curseIntro].desc)}</p>` : ''}
+      ${lv.boss ? `<p class="lc-boss">${G.BOSSES[lv.boss].glyph} Boss: <b>${G.BOSSES[lv.boss].name}</b> — ${esc(G.BOSSES[lv.boss].desc)}</p>` : ''}
       <dl class="lc-terms">
         <div><dt>Relics to cleanse</dt><dd>${lv.count}</dd></div>${needy}${curseTerms(lv, st.difficulty)}
         <div><dt>Time limit</dt><dd>${fmt(t.time)}</dd></div>
         <div><dt>Offenses allowed</dt><dd>${t.offenses}</dd></div>
         <div><dt>Difficulty</dt><dd>${d.label}${t.smudged ? ' · smudged ink' : ''}</dd></div>
       </dl>
-      ${lv.free ? '' : bestLine(lv, st.difficulty)}`;
+      ${lv.daily ? dailyLine(lv.daily) : lv.free ? '' : bestLine(lv, st.difficulty)}`;
   }
 
   // The level's curses on its card. Damned adds one more, chosen when the séance begins.
@@ -459,6 +493,12 @@
     const extra = difficulty === 'damned' && G.levels.cursesKnown(lv.free ? lv.bookUpTo : lv.n).length > lv.curses.length + (lv.freeCurses || 0);
     if (extra) names.push('+1 (Damned)');
     return names.length ? `<div class="lc-cursed"><dt>Curses</dt><dd>${names.join(', ')}</dd></div>` : '';
+  }
+
+  function dailyLine(date) {
+    const d = getDaily(), r = d.results[date], streak = dailyStreak(d);
+    return `<p class="lc-best">${candleRow(r ? r.candles : 0)} <span>${r ? `Your best today: ${fmt(r.time)}${r.strikes ? `, ${r.strikes} offense${r.strikes === 1 ? '' : 's'}` : ', no offenses'}` : 'Not cleared yet today'}
+      · edition ${G.levels.dailyLevel(date).edition}${streak ? ` · 🔥 ${streak}-day streak` : ''}</span></p>`;
   }
 
   // Three-candle target for a level at a difficulty, and this browser's best there.
@@ -475,6 +515,12 @@
     const prog = getProgress();
     list.innerHTML = '<header class="ll-head"><h2>Choose a level</h2><button class="btn small ll-close" type="button">Close</button></header>';
     list.querySelector('.ll-close').addEventListener('click', () => list.classList.add('hidden'));
+    const day = G.levels.today(), dres = getDaily().results[day];
+    const daily = el('button', 'll-row ll-daily' + (S.settings.daily ? ' current' : ''));
+    daily.type = 'button';
+    daily.innerHTML = `<span class="ll-n">☀</span><span class="ll-name">Today's séance <small>${prettyDay(day)} — the same table for everyone</small></span><span class="ll-marks">${dres ? candleRow(dres.candles) : ''}</span>`;
+    daily.addEventListener('click', () => { chooseMode({ daily: day }); list.classList.add('hidden'); });
+    list.appendChild(daily);
     G.levels.CHAPTERS.forEach((ch, c) => {
       const sec = el('section', 'll-chapter');
       const inChapter = G.levels.LEVELS.filter((x) => x.chapter === c);
@@ -487,19 +533,19 @@
           const tip = n ? `${DLABEL(d)}: ${n} of 3 candles${best ? ', best ' + fmt(best.time) : ''}` : `${DLABEL(d)}: not cleared`;
           return `<i class="${n ? 'on' : ''}" title="${tip}">${DLABEL(d)[0]}${n ? `<sup>${n}</sup>` : ''}</i>`;
         }).join('');
-        const b = el('button', 'll-row' + (open ? '' : ' locked') + (!S.settings.free && S.settings.level === lv.n ? ' current' : ''));
+        const b = el('button', 'll-row' + (open ? '' : ' locked') + (lv.boss ? ' boss' : '') + (!S.settings.free && !S.settings.daily && S.settings.level === lv.n ? ' current' : ''));
         b.type = 'button';
         b.disabled = !open;
-        b.innerHTML = `<span class="ll-n">${open ? lv.n : '🔒'}</span><span class="ll-name">${esc(lv.name)}${lv.intro ? ` <small>✦ ${G.relics[lv.intro].title}</small>` : ''}</span><span class="ll-marks">${marks}</span>`;
-        b.addEventListener('click', () => { hostSetting('level', lv.n); hostSetting('free', null); list.classList.add('hidden'); });
+        b.innerHTML = `<span class="ll-n">${open ? lv.n : '🔒'}</span><span class="ll-name">${esc(lv.name)}${lv.intro ? ` <small>✦ ${G.relics[lv.intro].title}</small>` : ''}${lv.boss ? ` <small class="ll-boss">${G.BOSSES[lv.boss].glyph} ${G.BOSSES[lv.boss].name}</small>` : ''}</span><span class="ll-marks">${marks}</span>`;
+        b.addEventListener('click', () => { chooseMode({ level: lv.n }); list.classList.add('hidden'); });
         sec.appendChild(b);
       }
       list.appendChild(sec);
     });
-    const free = el('button', 'll-row ll-free' + (S.settings.free ? ' current' : ''));
+    const free = el('button', 'll-row ll-free' + (S.settings.free && !S.settings.daily ? ' current' : ''));
     free.type = 'button';
     free.innerHTML = '<span class="ll-n">∞</span><span class="ll-name">Free séance <small>Any relics you have met, at random</small></span>';
-    free.addEventListener('click', () => { hostSetting('free', { count: 3, needy: 0 }); list.classList.add('hidden'); });
+    free.addEventListener('click', () => { chooseMode({ free: { count: 3, needy: 0 } }); list.classList.add('hidden'); });
     list.appendChild(free);
   }
 
@@ -514,12 +560,14 @@
   // ---- The séance --------------------------------------------------------------
   function startRound(m) {
     stopRound();
-    S.current = { t: 'start', seed: m.seed, edition: m.edition, difficulty: m.difficulty, level: m.level, free: m.free, mediumId: m.mediumId };
+    S.current = { t: 'start', seed: m.seed, edition: m.edition, difficulty: m.difficulty, level: m.level, free: m.free, daily: m.daily || null, mediumId: m.mediumId };
+    const bossLv = levelFor(m);
     S.role = m.mediumId === S.me.id ? 'medium' : 'scholar';
     S.lastStatus = null;
     audio.resetIntensity();
     audio.startAmbience();
     audio.startSeance();
+    if (bossLv && bossLv.boss) setTimeout(() => G.bosses.intro(bossLv.boss, audio), 500);
 
     if (S.role === 'medium') {
       const game = new G.Game(m);
@@ -531,7 +579,7 @@
         S.net.send(Object.assign({}, msg));
         endRound(msg);
       });
-      const sendStatus = () => S.net && S.net.send(Object.assign({ t: 'status' }, game.status()));
+      const sendStatus = () => S.net && S.view && S.net.send(Object.assign({ t: 'status' }, game.status(), S.view.extraStatus ? S.view.extraStatus() : {}));
       sendStatus();
       S.view.update();
       // setInterval with real deltas (not requestAnimationFrame) so the wrath keeps rising
@@ -549,14 +597,14 @@
         if (acc >= 0.5) { acc = 0; sendStatus(); }
       }, 100);
     } else {
-      const lv = m.free ? G.levels.freeLevel(m.free.count, m.free.needy, m.free.upTo, m.free.curses || 0) : G.levels.get(m.level);
+      const lv = bossLv;
       const t = G.levels.terms(lv, m.difficulty);
       const upTo = lv.free ? lv.bookUpTo : lv.n;
-      const banner = `<span class="cap">${lv.free ? 'Free séance' : 'Level ' + lv.n}</span> <b>${esc(lv.name)}</b>
+      const banner = `<span class="cap">${lv.daily ? '☀ ' + prettyDay(lv.daily) : lv.free ? 'Free séance' : 'Level ' + lv.n}</span> <b>${esc(lv.name)}</b>
         <span class="lb-terms">${G.levels.DIFFICULTY[m.difficulty].label} · ${fmt(t.time)} · ${t.offenses} offense${t.offenses === 1 ? '' : 's'}${t.smudged ? ' · smudged ink' : ''}</span>`;
       S.view = G.views.grimoire($('#screen-scholar'), G.rules.build(m.edition), {
         smudged: t.smudged, pages: G.levels.book(upTo), fresh: [lv.intro, lv.curseIntro].filter(Boolean), banner,
-        curses: G.levels.cursesKnown(upTo), activeCurses: G.levels.cursesFor(lv, m.difficulty, m.seed),
+        curses: G.levels.cursesKnown(upTo), activeCurses: G.levels.cursesFor(lv, m.difficulty, m.seed), boss: lv.boss,
       });
       show('scholar');
     }
@@ -613,8 +661,26 @@
     $('#end-title').className = m.result === 'win' ? 'win' : 'lose';
     $('#end-text').textContent = text;
     const lv = m.level ? G.levels.get(m.level) : null;
-    $('#end-level').textContent = m.levelName ? `${lv ? 'Level ' + lv.n + ' · ' : ''}${m.levelName} · ${G.levels.DIFFICULTY[m.difficulty].label}` : '';
+    $('#end-level').textContent = m.daily ? `☀ Daily séance · ${prettyDay(m.daily)}`
+      : m.levelName ? `${lv ? 'Level ' + lv.n + ' · ' : ''}${m.levelName} · ${G.levels.DIFFICULTY[m.difficulty].label}` : '';
     let unlock = '', rating = '';
+    if (m.daily) {
+      const dl = G.levels.dailyLevel(m.daily);
+      if (m.result === 'win') {
+        const d = getDaily();
+        const r = { time: m.time, strikes: m.strikes, candles: G.levels.rating(dl, 'vengeful', { time: m.time, strikes: m.strikes }) };
+        const prev = d.results[m.daily];
+        const improved = !prev || r.candles > prev.candles || (r.candles === prev.candles && r.time < prev.time);
+        if (improved) d.results[m.daily] = r;
+        store('daily.v1', JSON.stringify(d));
+        const streak = dailyStreak(d);
+        rating = `${candleRow(r.candles, 'big')}
+          <p class="best-line">${improved && prev ? 'A new best for today!' : improved ? 'Today’s séance is cleansed.' : `Your best today: ${prev.candles} candle${prev.candles === 1 ? '' : 's'} in ${fmt(prev.time)}.`}${streak ? ` 🔥 ${streak}-day streak` : ''}</p>
+          <p class="share-line"><span>${esc(shareText(m.daily, d.results[m.daily]).split('\n')[0])}</span><button class="btn small share-btn" type="button">Copy to share</button></p>`;
+      } else {
+        unlock = 'The table stays the same all day — try again, or come back tomorrow for a new one.';
+      }
+    }
     if (m.result === 'win' && lv) {
       const before = getProgress();
       const wasOpen = P.open(before, lv.n + 1);
@@ -640,6 +706,11 @@
     }
     $('#end-unlock').textContent = unlock;
     $('#end-rating').innerHTML = rating;
+    const shareBtn = $('#end-rating .share-btn');
+    if (shareBtn) shareBtn.addEventListener('click', async () => {
+      const text = shareText(m.daily, getDaily().results[m.daily]);
+      try { await navigator.clipboard.writeText(text); shareBtn.textContent = 'Copied!'; } catch (e) { prompt('Copy this:', text); }
+    });
     S.nextLevel = m.result === 'win' && lv && G.levels.get(lv.n + 1) ? lv.n + 1 : 0;
     $('#btn-next').classList.toggle('hidden', !S.isHost || !S.nextLevel);
     const stats = $('#end-stats');
@@ -765,9 +836,10 @@
   function renderHomeProgress() {
     const p = getProgress();
     const total = P.total(p);
-    $('#home-progress').innerHTML = total
-      ? `Level ${P.furthest(p)} of ${G.levels.LEVELS.length} reached · <b>${total}</b> of ${P.max()} candles`
-      : '';
+    const d = getDaily(), r = d.results[G.levels.today()], streak = dailyStreak(d);
+    $('#home-progress').innerHTML = (total
+      ? `Level ${P.furthest(p)} of ${G.levels.LEVELS.length} reached · <b>${total}</b> of ${P.max()} candles<br>`
+      : '') + `☀ Today's séance: ${r ? `cleared in <b>${fmt(r.time)}</b> ${'🕯️'.repeat(r.candles)}` : 'not played yet — find it in the level list'}${streak ? ` · 🔥 ${streak}-day streak` : ''}`;
   }
 
   function init() {
@@ -795,7 +867,8 @@
     $('#btn-solo').addEventListener('click', playSolo);
     $('#btn-print').addEventListener('click', () => {
       const st = S.settings;
-      G.views.openPrint({ edition: st.edition, smudged: G.levels.terms(currentLevel(st), st.difficulty).smudged, upTo: st.upTo, all: $('#print-all').checked });
+      const lv = currentLevel(st);
+      G.views.openPrint({ edition: lv.daily ? lv.edition : st.edition, smudged: !lv.daily && G.levels.terms(lv, st.difficulty).smudged, upTo: st.upTo, all: $('#print-all').checked || !!lv.daily });
     });
     $('#print-all').addEventListener('change', renderPrintCard);
     $('#in-code').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
