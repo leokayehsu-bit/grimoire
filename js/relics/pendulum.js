@@ -65,14 +65,14 @@
 
     smudgeables(rules) {
       const out = [];
-      for (const c of CRYSTALS) for (const s of SWINGS) out.push({ key: `${c}.${s}`, where: `${title(c)} crystal, ${SWING_TEXT[s].toLowerCase()}`, value: title(rules.table[c][s]) });
+      for (const c of CRYSTALS) for (const s of SWINGS) out.push({ key: `${c}.${s}`, where: `${title(c)} crystal, ${SWING_TEXT[s].toLowerCase()}`, value: `${SYMBOLS[rules.table[c][s]]} ${title(rules.table[c][s])}` });
       return out;
     },
 
     manual(rules, smudge) {
       const ink = G.util.inker(smudge);
       const rows = CRYSTALS.map((c) => [`<span class="swatch" style="background:${CRYSTAL_CSS[c]}"></span> ${title(c)}`]
-        .concat(SWINGS.map((s) => `${SYMBOLS[rules.table[c][s]]} ${ink(`${c}.${s}`, title(rules.table[c][s]))}`)));
+        .concat(SWINGS.map((s) => ink(`${c}.${s}`, `${SYMBOLS[rules.table[c][s]]} ${title(rules.table[c][s])}`))));
       return `<p class="lead">A crystal pendulum swings over a board split into four quadrants, each with a symbol:
         the Sun ${SYMBOLS.SUN}, the Moon ${SYMBOLS.MOON}, the Star ${SYMBOLS.STAR} and the Tower ${SYMBOLS.TOWER}.
         Have the Medium name the crystal and how it swings, as seen from above.</p>

@@ -188,6 +188,29 @@
     };
   }
 
+  // The grimoire laid out for paper: a cover with contents, then the preface and one relic per printed page.
+  function printBook(root, rules, { pages, smudged = false, upTo = 0, only = false }) {
+    const sm = smudged ? G.rules.smudges(rules, pages) : null;
+    if (only) {
+      root.innerHTML = pages.map((id) => `<section class="print-sheet"><article class="page print"><h2>${G.relics[id].title}</h2>
+        ${G.rules.page(rules, id, null)}<p class="edition">Grimoire · edition ${rules.edition} · a new page to add to your book</p></article></section>`).join('');
+      return;
+    }
+    const foot = `Grimoire · edition ${rules.edition}${smudged ? ' · smudged copy' : ''}`;
+    const contents = pages.map((id, k) => `<li><span>${k + 1}.</span> ${G.relics[id].title}${G.relics[id].needy ? ' <small>(soothe only)</small>' : ''}</li>`).join('');
+    root.innerHTML = `<section class="print-sheet print-cover">
+        <div class="pc-crest">☾</div>
+        <h1>Grimoire</h1>
+        <p class="pc-sub">Edition ${rules.edition}${smudged ? ' · <b>smudged copy</b> for Damned séances' : ''}</p>
+        <p class="pc-scope">${upTo ? `Every page up to level ${upTo}` : 'Every page'} — ${pages.length} relic${pages.length === 1 ? '' : 's'}</p>
+        <h3>Contents</h3><ol class="pc-contents">${contents}</ol>
+        <p class="pc-rule">The Medium may not read this book. The Scholars may not look at the screen.</p>
+      </section>
+      <section class="print-sheet"><article class="page print"><h2>Preface</h2>${preface(rules, sm)}<p class="edition">${foot}</p></article></section>` +
+      pages.map((id, k) => `<section class="print-sheet"><article class="page print"><h2><span class="pnum">${k + 1}.</span> ${G.relics[id].title}</h2>
+        ${G.rules.page(rules, id, sm)}<p class="edition">${foot}</p></article></section>`).join('');
+  }
+
   // Study the book from the main menu, outside any room. Pages unlock as your own progress reaches them.
   function study(root, { edition = 1, smudged = false, upTo = 1, onChange } = {}) {
     root.innerHTML = '';
@@ -195,7 +218,8 @@
     bar.innerHTML = `
       <button class="btn small study-back" type="button">← Main menu</button>
       <label class="study-ed"><span class="label">Edition</span><input type="number" min="1" max="999" inputmode="numeric"></label>
-      <label class="study-smudge"><input type="checkbox"> <span>Smudged copy <small>(Damned)</small></span></label>`;
+      <label class="study-smudge"><input type="checkbox"> <span>Smudged copy <small>(Damned)</small></span></label>
+      <button class="btn small study-print" type="button">🖨 Print this book</button>`;
     root.appendChild(bar);
     const pages = G.levels.book(upTo);
     const locked = G.BOOK_ORDER.filter((id) => !pages.includes(id));
@@ -218,8 +242,24 @@
     edIn.addEventListener('change', draw);
     smIn.addEventListener('change', draw);
     draw();
+    bar.querySelector('.study-print').addEventListener('click', () => {
+      G.views.openPrint({ edition: +edIn.value || 1, smudged: smIn.checked, upTo });
+    });
     return { back: bar.querySelector('.study-back'), destroy: () => { root.innerHTML = ''; } };
   }
 
-  G.views = { seance, grimoire, study, fmt, NUMWORD };
+  // Open the printable book in a new tab (it prints itself). Same edition + smudging = the same book on screen.
+  function openPrint({ edition, smudged, upTo, all, only }) {
+    const u = new URL(location.href);
+    u.search = '';
+    u.searchParams.set('print', '');
+    u.searchParams.set('edition', edition);
+    if (only) u.searchParams.set('only', only);
+    else if (all) u.searchParams.set('all', '');
+    else u.searchParams.set('upto', upTo);
+    if (smudged) u.searchParams.set('smudged', '');
+    window.open(u.toString().replace(/=(?=&|$)/g, ''), '_blank');
+  }
+
+  G.views = { seance, grimoire, study, printBook, openPrint, fmt, NUMWORD };
 })(globalThis.GR = globalThis.GR || {});

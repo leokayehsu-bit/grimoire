@@ -22,6 +22,8 @@
   };
   const NAMES = Object.keys(RUNES);
   const rune = (n, cls = 'rune') => `<svg class="${cls}" viewBox="0 0 20 30" aria-hidden="true"><path d="${RUNES[n]}"/></svg>`;
+  // A table cell: the rune's picture and its name, smudged together so the picture never gives the answer away.
+  const cellText = (n) => `${rune(n, 'rune small')} ${title(n)}`;
 
   const relic = {
     id: 'crystal',
@@ -96,14 +98,14 @@
 
     smudgeables(rules) {
       const out = [];
-      for (const a of COLORS) for (const b of COLORS) out.push({ key: `${a}.${b}`, where: `first ${title(a)}, last ${title(b)}`, value: title(rules.grid[a][b]) });
+      for (const a of COLORS) for (const b of COLORS) out.push({ key: `${a}.${b}`, where: `first ${title(a)}, last ${title(b)}`, value: cellText(rules.grid[a][b]) });
       return out;
     },
 
     manual(rules, smudge) {
       const ink = G.util.inker(smudge);
       const rows = COLORS.map((a) => [`<span class="swatch" style="background:${MIST[a]}"></span> ${title(a)}`]
-        .concat(COLORS.map((b) => `<span class="rune-cell">${rune(rules.grid[a][b], 'rune small')} ${ink(`${a}.${b}`, title(rules.grid[a][b]))}</span>`)));
+        .concat(COLORS.map((b) => `<span class="rune-cell">${ink(`${a}.${b}`, cellText(rules.grid[a][b]))}</span>`)));
       return `<p class="lead">The mist inside the ball turns three colours one after another, then clears and starts again.
         Have the Medium watch from a clearing: the <b>first</b> colour picks the row and the <b>last</b> colour picks the column.
         The middle colour means nothing.</p>

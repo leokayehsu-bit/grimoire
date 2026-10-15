@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=202610142256">
+<link rel="stylesheet" href="css/style.css?v=202610150917">
 </head>
 <body>
 <div id="fx-vignette" aria-hidden="true"></div>
@@ -28,6 +28,7 @@
         </div>
         <p id="home-msg" class="msg" role="status"></p>
       </div>
+      <button id="btn-solo" class="btn study-open" type="button">🕯️ Play on one screen <small>with a printed grimoire</small></button>
       <button id="btn-study" class="btn study-open" type="button">📖 Read the grimoire</button>
       <details class="howto">
         <summary>How to play</summary>
@@ -49,7 +50,16 @@
         <button id="btn-invite" class="btn small" type="button">Copy invite link</button>
       </header>
       <div class="lobby-grid">
-        <div class="card">
+        <div id="print-card" class="card hidden">
+          <h2>The printed grimoire</h2>
+          <p class="lead-sm">One screen, one book. The Medium plays on this screen; everyone else reads a paper copy of the grimoire and never looks at the screen.</p>
+          <button id="btn-print" class="btn primary-ghost" type="button">🖨 Print the grimoire</button>
+          <p id="print-note" class="note"></p>
+          <label class="check-row"><input type="checkbox" id="print-all"> <span>Include pages you haven’t unlocked yet</span></label>
+          <div id="print-new" class="print-new hidden"></div>
+          <p class="note">No printer? Open “Read the grimoire” on a phone or another computer, using the same edition.</p>
+        </div>
+        <div id="roles-card" class="card">
           <h2>Who sits where</h2>
           <div class="roles">
             <button id="role-medium" class="role-card" type="button">
@@ -116,35 +126,35 @@
 </main>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="js/util.js?v=202610142256"></script>
-<script src="js/seance.js?v=202610142256"></script>
-<script src="js/kit.js?v=202610142256"></script>
-<script src="js/relics/candles.js?v=202610142256"></script>
-<script src="js/relics/ouija.js?v=202610142256"></script>
-<script src="js/relics/musicbox.js?v=202610142256"></script>
-<script src="js/relics/tarot.js?v=202610142256"></script>
-<script src="js/relics/doll.js?v=202610142256"></script>
-<script src="js/relics/dollhouse.js?v=202610142256"></script>
-<script src="js/relics/diary.js?v=202610142256"></script>
-<script src="js/relics/bell.js?v=202610142256"></script>
-<script src="js/relics/mirror.js?v=202610142256"></script>
-<script src="js/relics/headstone.js?v=202610142256"></script>
-<script src="js/relics/crystal.js?v=202610142256"></script>
-<script src="js/relics/lantern.js?v=202610142256"></script>
-<script src="js/relics/gramophone.js?v=202610142256"></script>
-<script src="js/relics/pendulum.js?v=202610142256"></script>
-<script src="js/relics/knucklebones.js?v=202610142256"></script>
-<script src="js/relics/door.js?v=202610142256"></script>
-<script src="js/relics/raven.js?v=202610142256"></script>
-<script src="js/relics/palm.js?v=202610142256"></script>
-<script src="js/relics/salt.js?v=202610142256"></script>
-<script src="js/relics/apothecary.js?v=202610142256"></script>
-<script src="js/rules.js?v=202610142256"></script>
-<script src="js/levels.js?v=202610142256"></script>
-<script src="js/game.js?v=202610142256"></script>
-<script src="js/audio.js?v=202610142256"></script>
-<script src="js/views.js?v=202610142256"></script>
-<script src="js/net.js?v=202610142256"></script>
-<script src="js/main.js?v=202610142256"></script>
+<script src="js/util.js?v=202610150917"></script>
+<script src="js/seance.js?v=202610150917"></script>
+<script src="js/kit.js?v=202610150917"></script>
+<script src="js/relics/candles.js?v=202610150917"></script>
+<script src="js/relics/ouija.js?v=202610150917"></script>
+<script src="js/relics/musicbox.js?v=202610150917"></script>
+<script src="js/relics/tarot.js?v=202610150917"></script>
+<script src="js/relics/doll.js?v=202610150917"></script>
+<script src="js/relics/dollhouse.js?v=202610150917"></script>
+<script src="js/relics/diary.js?v=202610150917"></script>
+<script src="js/relics/bell.js?v=202610150917"></script>
+<script src="js/relics/mirror.js?v=202610150917"></script>
+<script src="js/relics/headstone.js?v=202610150917"></script>
+<script src="js/relics/crystal.js?v=202610150917"></script>
+<script src="js/relics/lantern.js?v=202610150917"></script>
+<script src="js/relics/gramophone.js?v=202610150917"></script>
+<script src="js/relics/pendulum.js?v=202610150917"></script>
+<script src="js/relics/knucklebones.js?v=202610150917"></script>
+<script src="js/relics/door.js?v=202610150917"></script>
+<script src="js/relics/raven.js?v=202610150917"></script>
+<script src="js/relics/palm.js?v=202610150917"></script>
+<script src="js/relics/salt.js?v=202610150917"></script>
+<script src="js/relics/apothecary.js?v=202610150917"></script>
+<script src="js/rules.js?v=202610150917"></script>
+<script src="js/levels.js?v=202610150917"></script>
+<script src="js/game.js?v=202610150917"></script>
+<script src="js/audio.js?v=202610150917"></script>
+<script src="js/views.js?v=202610150917"></script>
+<script src="js/net.js?v=202610150917"></script>
+<script src="js/main.js?v=202610150917"></script>
 </body>
 </html>

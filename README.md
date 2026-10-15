@@ -9,6 +9,8 @@ A co-op "one sees, the others read" party game. The **Medium** sits at a séance
 - Rooms use [PeerJS](https://peerjs.com): the free PeerJS cloud server only introduces players, then game data goes browser-to-browser. Voice isn't carried, so play in one room or on a call.
 - Add `?local` to the URL for offline testing with several tabs in one browser (BroadcastChannel, no internet).
 
+**One screen:** “Play on one screen” on the main menu skips rooms entirely. This computer is the Medium, and the Scholars read a **printed grimoire**. The print card prints the book for the chosen edition (pages you've unlocked, or every page), in the smudged version when Damned is picked; a level that adds a page offers to print just that page. The printable book is a plain link: `?print&edition=N&upto=L` (or `&all`, or `&only=<relic>`, plus `&smudged`; `&noauto` skips the print dialog). “Read the grimoire” has a print button too.
+
 To play with friends elsewhere, the files need to be hosted somewhere public (GitHub Pages and itch.io HTML games are both free).
 
 ## Layout

@@ -76,6 +76,54 @@
     }, { local: LOCAL });
   }
 
+  // The host's starting choices: their furthest open level, or the one they last played.
+  function freshSettings() {
+    const furthest = P.furthest(getProgress());
+    const last = +load('lastLevel');
+    return {
+      edition: +load('lastEdition') || 1,
+      difficulty: load('lastDifficulty') || 'vengeful',
+      level: last && last <= furthest ? last : furthest,
+      free: null,
+      upTo: furthest,
+    };
+  }
+
+  // ---- One screen: no room; you sit as the Medium and the Scholars read a printed grimoire. ----
+  function playSolo() {
+    audio.unlock();
+    const name = $('#in-name').value.trim().slice(0, 16) || 'Medium';
+    S.solo = true;
+    S.net = { id: 'solo', send() {}, leave() {} };
+    S.me = { id: 'solo', name };
+    S.isHost = true;
+    S.hostId = 'solo';
+    S.code = null;
+    S.players = [{ id: 'solo', name, role: 'medium' }];
+    S.current = null;
+    S.settings = freshSettings();
+    show('lobby');
+    broadcastLobby();
+  }
+
+  function renderPrintCard() {
+    const st = S.settings;
+    const lv = currentLevel(st);
+    const t = G.levels.terms(lv, st.difficulty);
+    const all = $('#print-all').checked;
+    const pages = all ? G.BOOK_ORDER : G.levels.book(st.upTo);
+    $('#print-note').textContent = `Edition ${st.edition} · ${pages.length} relic page${pages.length === 1 ? '' : 's'} · ${t.smudged ? 'smudged copy (for Damned)' : 'clean copy'}`;
+    // A level that adds a page the last printout may not have: offer just that page.
+    const box = $('#print-new');
+    const fresh = !lv.free && lv.intro;
+    box.classList.toggle('hidden', !fresh);
+    if (fresh) {
+      box.innerHTML = `This level adds a new page — <b>${G.relics[lv.intro].title}</b>. If your printed book is older, print it now.
+        <button id="btn-print-new" class="btn small" type="button">🖨 Print only this page</button>`;
+      box.querySelector('button').addEventListener('click', () => G.views.openPrint({ edition: st.edition, only: lv.intro }));
+    }
+  }
+
   // ---- Joining ---------------------------------------------------------------
   async function createRoom() {
     const name = readName();
@@ -99,15 +147,7 @@
     S.hostId = net.id;
     S.players = [{ id: net.id, name, role: null }];
     S.current = null;
-    const furthest = P.furthest(getProgress());
-    const last = +load('lastLevel');
-    S.settings = {
-      edition: +load('lastEdition') || 1,
-      difficulty: load('lastDifficulty') || 'vengeful',
-      level: last && last <= furthest ? last : furthest,
-      free: null,
-      upTo: furthest,
-    };
+    S.settings = freshSettings();
     show('lobby');
     broadcastLobby();
   }
@@ -149,6 +189,7 @@
     S.players = [];
     S.current = null;
     S.role = null;
+    S.solo = false;
     busy(false);
     audio.stopAmbience();
     show('home');
@@ -237,6 +278,7 @@
   }
 
   function startCheck() {
+    if (S.solo) return '';
     const medium = S.players.find((p) => p.role === 'medium');
     const scholars = S.players.filter((p) => p.role === 'scholar');
     if (!medium) return 'Someone must sit as the Medium.';
@@ -266,6 +308,11 @@
 
   function renderLobby() {
     if (S.screen !== 'lobby') return;
+    $('#screen-lobby').classList.toggle('solo', !!S.solo);
+    $('#print-card').classList.toggle('hidden', !S.solo);
+    $('#roles-card').classList.toggle('hidden', !!S.solo);
+    if (S.solo) renderPrintCard();
+    $('#btn-leave').textContent = S.solo ? '← Main menu' : 'Leave room';
     $('#lobby-code').textContent = S.code || '····';
     const mine = S.players.find((p) => p.id === S.me.id);
     const medium = S.players.find((p) => p.role === 'medium');
@@ -508,7 +555,28 @@
   }
 
   // ---- Wiring ------------------------------------------------------------------
+  // ?print&edition=N&(upto=L|all|only=id)[&smudged] lays the grimoire out for paper and opens the print dialog.
+  function printMode() {
+    document.body.classList.add('printing');
+    const edition = Math.max(1, Math.min(999, Math.round(+params.get('edition')) || 1));
+    const only = params.get('only');
+    const all = params.has('all');
+    const upTo = Math.max(1, Math.min(G.levels.LEVELS.length, +params.get('upto') || 1));
+    const pages = only && G.relics[only] ? [only] : all ? G.BOOK_ORDER : G.levels.book(upTo);
+    const bar = el('div', 'print-bar');
+    bar.innerHTML = `<span>Grimoire · edition ${edition}${params.has('smudged') ? ' · smudged' : ''} — ${pages.length} page${pages.length === 1 ? '' : 's'}</span>
+      <button class="btn small primary" type="button">🖨 Print</button>`;
+    bar.querySelector('button').addEventListener('click', () => window.print());
+    const root = el('div');
+    root.id = 'print-root';
+    document.body.append(bar, root);
+    G.views.printBook(root, G.rules.build(edition), { pages, smudged: params.has('smudged') && !only, upTo: all || only ? 0 : upTo, only: !!only });
+    document.title = `Grimoire — edition ${edition}`;
+    if (!params.has('noauto')) (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(() => window.print(), 500));
+  }
+
   function init() {
+    if (params.has('print')) { printMode(); return; }
     $('#in-name').value = load('name') || '';
     const room = (params.get('room') || '').toUpperCase();
     if (room) {
@@ -522,6 +590,12 @@
     $('#btn-create').addEventListener('click', createRoom);
     $('#btn-join').addEventListener('click', joinRoom);
     $('#btn-study').addEventListener('click', openStudy);
+    $('#btn-solo').addEventListener('click', playSolo);
+    $('#btn-print').addEventListener('click', () => {
+      const st = S.settings;
+      G.views.openPrint({ edition: st.edition, smudged: G.levels.terms(currentLevel(st), st.difficulty).smudged, upTo: st.upTo, all: $('#print-all').checked });
+    });
+    $('#print-all').addEventListener('change', renderPrintCard);
     $('#in-code').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
     $('#in-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom(); });
     $('#in-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') ($('#in-code').value ? joinRoom : createRoom)(); });
@@ -558,7 +632,7 @@
     $('#btn-leave').addEventListener('click', leave);
     $('#btn-end-leave').addEventListener('click', leave);
     $('#btn-quit').addEventListener('click', () => {
-      if (confirm(S.isHost ? 'Leaving closes the room for everyone. Leave?' : 'Leave the séance?')) leave();
+      if (confirm(S.solo ? 'Abandon this séance?' : S.isHost ? 'Leaving closes the room for everyone. Leave?' : 'Leave the séance?')) leave();
     });
     $('#btn-again').addEventListener('click', () => {
       if (!S.isHost) return;
