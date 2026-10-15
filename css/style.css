@@ -980,3 +980,40 @@ body.dying .sound-ctl, body.dying .quit { visibility: hidden; }
   .seance-table { border-radius: 16px; }
   #screen-medium .relic .seal { width: 46px; height: 46px; }
 }
+
+/* ---- The doll lashes out (wrong comfort or an ignored whisper) ---- */
+.doll .d-rage { display: none; }
+.d-brow { fill: none; stroke: #2a140c; stroke-width: 2.2; stroke-linecap: round; }
+.d-void { fill: #060208; }
+.d-glow { fill: #ff2a1a; filter: drop-shadow(0 0 2.5px #ff2a1a); }
+.d-scream { fill: #0b0306; stroke: #5a1010; stroke-width: 0.9; }
+.d-crack2 { fill: none; stroke: #2e140c; stroke-width: 1.3; stroke-linecap: round; }
+.doll.lashing .d-rage { display: inline; }
+.doll.lashing .eyes-open, .doll.lashing .eyes-closed, .doll.lashing .d-mouth, .doll.lashing .d-cheek { display: none; }
+.doll.lashing .d-head { animation: lash 1.6s cubic-bezier(0.2, 0.9, 0.3, 1) forwards; }
+.doll.lashing svg { filter: drop-shadow(0 0 16px rgba(255, 30, 20, 0.75)); animation: lashGlow 1.6s forwards; }
+@keyframes lash {
+  0% { transform: rotate(-14deg) translateY(3px) scale(1); }
+  7% { transform: rotate(16deg) translateY(-4px) scale(1.25); }
+  14% { transform: rotate(-12deg) translateY(-10px) scale(1.6); }
+  21% { transform: rotate(10deg) translateY(-10px) scale(1.65); }
+  28% { transform: rotate(-7deg) translateY(-9px) scale(1.6); }
+  36% { transform: rotate(5deg) translateY(-8px) scale(1.55); }
+  52% { transform: rotate(-3deg) translateY(-6px) scale(1.45); }
+  72% { transform: rotate(-9deg) translateY(-1px) scale(1.15); }
+  86% { transform: rotate(-16deg) translateY(4px) scale(0.98); }
+  100% { transform: rotate(-14deg) translateY(3px) scale(1); }
+}
+@keyframes lashGlow { 0%, 60% { filter: drop-shadow(0 0 16px rgba(255, 30, 20, 0.75)); } 100% { filter: none; } }
+.relic.needy.angered { animation: angered 0.9s; }
+@keyframes angered {
+  0% { transform: translate(0, 0); box-shadow: inset 0 0 0 0 rgba(208, 40, 30, 0); }
+  10% { transform: translate(-9px, 3px); box-shadow: inset 0 0 90px 10px rgba(208, 40, 30, 0.55), 0 0 40px rgba(208, 40, 30, 0.5); }
+  20% { transform: translate(8px, -4px); }
+  30% { transform: translate(-6px, -2px); }
+  40% { transform: translate(5px, 3px); }
+  55% { transform: translate(-3px, 1px); box-shadow: inset 0 0 60px 6px rgba(208, 40, 30, 0.3), 0 0 24px rgba(208, 40, 30, 0.3); }
+  100% { transform: translate(0, 0); box-shadow: inset 0 0 0 0 rgba(208, 40, 30, 0); }
+}
+.whisper.shriek { color: #ff6a5a; font-size: 1.35rem; letter-spacing: 0.08em; text-shadow: 0 0 14px rgba(255, 40, 30, 0.9); animation: shriek 0.18s 5; }
+@keyframes shriek { 50% { transform: translate(2px, -1px) skewX(-6deg); } }

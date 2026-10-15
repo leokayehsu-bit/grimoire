@@ -112,6 +112,13 @@
             <path d="M44 59 L42 62 M49 60.5 L49 64 M54 59 L56 62 M66 59 L64 62 M71 60.5 L71 64 M76 59 L78 62" class="d-lid"/></g>
           <circle cx="44" cy="68" r="4.5" class="d-cheek"/><circle cx="76" cy="68" r="4.5" class="d-cheek"/>
           <path class="d-mouth" d="M55 74 Q60 78 65 74"/>
+          <g class="d-rage">
+            <path class="d-brow" d="M40 46 L56 52 M80 46 L64 52"/>
+            <ellipse cx="49" cy="57" rx="6.8" ry="7.4" class="d-void"/><ellipse cx="71" cy="57" rx="6.8" ry="7.4" class="d-void"/>
+            <circle cx="49" cy="58" r="2.6" class="d-glow"/><circle cx="71" cy="58" r="2.6" class="d-glow"/>
+            <path class="d-scream" d="M50 69 Q60 63 70 69 L67 86 L63 80 L60 89 L57 80 L53 86 Z"/>
+            <path class="d-crack2" d="M75 50 L69 60 L74 66 L66 76 L70 84 M74 34 L82 24 M69 60 L62 63"/>
+          </g>
         </g>
       </svg>`;
       const side = el('div', 'doll-side');
@@ -136,12 +143,24 @@
       root.appendChild(wrap);
       root.appendChild(el('p', 'relic-tip', 'It cannot be cleansed. When it whispers, read the words aloud and say whether its eyes are open.'));
 
-      let phase = null, lastSec = -1, offended = state.offended;
+      let phase = null, lastSec = -1, offended = state.offended, lashUntil = 0, lashTimer = null;
+      const SHRIEKS = ['NO!', 'LIAR!', 'WRONG!', 'YOU LEFT ME!', 'NOT LIKE THAT!'];
       function feedback(good) {
         panel.classList.remove('hushed', 'angered');
         void panel.offsetWidth;
         panel.classList.add(good ? 'hushed' : 'angered');
-        if (good) api.audio.hush();
+        if (good) { api.audio.hush(); return; }
+        // It lashes out: eyes blaze, the head lunges and screams, the crack spreads — then it sinks back.
+        fig.classList.remove('lashing');
+        void fig.getBoundingClientRect();
+        fig.classList.add('lashing');
+        lashUntil = Date.now() + 1600;
+        bubble.textContent = SHRIEKS[Math.floor(Math.random() * SHRIEKS.length)];
+        bar.style.width = '0%';
+        bubble.classList.add('shriek');
+        api.audio.dollShriek();
+        clearTimeout(lashTimer);
+        lashTimer = setTimeout(() => { fig.classList.remove('lashing'); bubble.classList.remove('shriek'); update(); }, 1700);
       }
       function update() {
         const whispering = state.phase === 'whisper' && !api.solved();
@@ -157,6 +176,7 @@
         fig.classList.toggle('awake', whispering);
         fig.classList.toggle('open', whispering && w.eyes === 'open');
         panel.classList.toggle('whispering', whispering);
+        if (Date.now() < lashUntil) return;
         bubble.textContent = whispering ? `“${w.phrase}”` : '…';
         bubble.classList.toggle('on', whispering);
         bar.style.width = whispering ? (100 * Math.max(0, state.t) / WINDOW).toFixed(1) + '%' : '0%';
@@ -165,7 +185,7 @@
         lastSec = sec;
       }
       update();
-      return { update };
+      return { update, destroy: () => clearTimeout(lashTimer) };
     },
 
     // Every table cell the smudged grimoire may blot out, with exactly the text manual() prints there.

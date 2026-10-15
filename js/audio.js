@@ -422,6 +422,20 @@
       this.noise(0.4, { vol: 0.04, freq: 5000, type: 'highpass', attack: 0.05, at: 0.05 });
     }
 
+    // The doll lashes out: a broken music box tumbling down, a shrill child's shriek, and a slam.
+    dollShriek() {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      [1567.98, 1396.91, 1174.66, 932.33].forEach((f, k) => this.tine(f * (1 - k * 0.012), t + k * 0.06, 0.07));
+      for (const [a, b, v] of [[1180, 2350, 0.07], [1245, 2480, 0.05], [2360, 4700, 0.02]]) {
+        this.tone(a, { type: 'sawtooth', dur: 0.55, vol: v, attack: 0.03, slide: b, at: 0.08 });
+        this.tone(b, { type: 'sine', dur: 0.5, vol: v * 0.8, attack: 0.02, slide: a, at: 0.6 });
+      }
+      this.noise(0.9, { vol: 0.2, freq: 2600, q: 3, sweep: 5200, attack: 0.04, at: 0.08 });
+      this.tone(70, { dur: 0.5, vol: 0.4, slide: 40, at: 0.12 });
+      this.noise(0.25, { vol: 0.25, freq: 500, type: 'lowpass', attack: 0.004, at: 0.12 });
+    }
+
     // A soft wooden tick for menu buttons.
     uiTap() {
       this.tone(430, { type: 'triangle', dur: 0.045, vol: 0.035, attack: 0.002 });
