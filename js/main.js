@@ -247,7 +247,8 @@
     const p = S.players.find((x) => x.id === id);
     if (p && !S.current) {
       const mediumTaken = S.players.some((q) => q.role === 'medium' && q.id !== id);
-      if (role === 'scholar' || (role === 'medium' && !mediumTaken)) p.role = role;
+      // null gives the seat up, so two players can swap.
+      if (role === null || role === 'scholar' || (role === 'medium' && !mediumTaken)) p.role = role;
     }
     broadcastLobby();
   }
@@ -278,8 +279,11 @@
   }
 
   // ---- Lobby -------------------------------------------------------------------
+  // Picking the seat you already have stands you up from it.
   function pickRole(role) {
     if (S.current) return;
+    const mine = S.players.find((p) => p.id === S.me.id);
+    if (mine && mine.role === role) role = null;
     if (S.isHost) hostRole(S.me.id, role);
     else S.net.send({ t: 'role', role });
   }
@@ -335,7 +339,12 @@
     mediumBtn.classList.toggle('mine', !!mine && mine.role === 'medium');
     scholarBtn.classList.toggle('mine', !!mine && mine.role === 'scholar');
     mediumBtn.disabled = !!medium && medium.id !== S.me.id;
-    mediumBtn.querySelector('.taken').textContent = medium && medium.id !== S.me.id ? `Taken by ${medium.name}` : '';
+    mediumBtn.querySelector('.taken').textContent = medium && medium.id !== S.me.id ? `Taken by ${medium.name} — they can tap it again to give it up` : '';
+    for (const [btn, role] of [[mediumBtn, 'medium'], [scholarBtn, 'scholar']]) {
+      let note = btn.querySelector('.unseat');
+      if (!note) { note = el('em', 'unseat'); btn.appendChild(note); }
+      note.textContent = mine && mine.role === role ? 'Your seat — tap again to give it up' : '';
+    }
 
     const list = $('#player-list');
     list.innerHTML = '';

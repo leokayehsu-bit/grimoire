@@ -787,3 +787,5 @@ body.printing #app, body.printing #fx-vignette { display: none; }
 .sound-pop label { display: grid; grid-template-columns: 4.5em 1fr; align-items: center; gap: 8px; font-family: var(--sc); font-size: 0.85rem; color: var(--dim); }
 .sound-pop input[type=range] { padding: 0; accent-color: var(--candle); background: none; border: 0; }
 body.printing .sound-ctl { display: none; }
+.role-card .unseat { color: var(--candle); font-size: 0.8rem; min-height: 0; }
+.role-card .unseat:empty { display: none; }
