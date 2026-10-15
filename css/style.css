@@ -850,20 +850,23 @@ body.cb .needy-fig:not(.awake) .cb-awake, body.cb .cb-awake:empty { display: non
    The spirit claims you
    ====================================================================== */
 .death { position: fixed; inset: 0; z-index: 200; overflow: hidden; cursor: pointer; }
-.dz-black { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.85s ease-in; }
+.dz-black { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.3s ease-in; }
 .death.dz-dark .dz-black { opacity: 0.97; }
 .dz-red { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(170, 0, 12, 0.5), rgba(30, 0, 0, 0.92) 72%); }
-.death.dz-flicker .dz-red { animation: dzFlicker 0.75s steps(1) forwards; }
+.death.dz-flicker .dz-red { animation: dzFlicker 0.52s steps(1) forwards; }
 @keyframes dzFlicker { 0% { opacity: 0.9; } 12% { opacity: 0; } 25% { opacity: 0.6; } 40% { opacity: 0; } 55% { opacity: 0.85; } 70% { opacity: 0.15; } 100% { opacity: 0.55; } }
 .dz-face { position: absolute; left: 50%; top: 52%; width: min(44vw, 270px); transform: translate(-50%, -50%) scale(0.35); opacity: 0; filter: drop-shadow(0 0 30px rgba(255, 40, 30, 0.55)); }
 .dz-face .dz-hair { fill: #0b080e; }
 .dz-face .dz-pupil { fill: #ffd8c8; }
-.death.dz-flicker .dz-face { animation: dzFaceFlicker 0.75s steps(1) forwards; }
+.death.dz-flicker .dz-face { animation: dzFaceFlicker 0.52s steps(1) forwards; }
 @keyframes dzFaceFlicker { 0% { opacity: 0.8; } 12% { opacity: 0; } 25% { opacity: 0.45; } 40% { opacity: 0; } 55% { opacity: 0.95; } 70% { opacity: 0.3; } 100% { opacity: 0.9; } }
-.death.dz-lunge .dz-face { animation: dzLunge 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards; }
-@keyframes dzLunge { from { opacity: 0.9; transform: translate(-50%, -50%) scale(0.35); } to { opacity: 1; transform: translate(-50%, -42%) scale(6); } }
-.death.dz-lunge { animation: dzShake 0.55s 0.15s; }
-@keyframes dzShake { 10% { transform: translate(-16px, 9px); } 20% { transform: translate(14px, -11px); } 30% { transform: translate(-11px, -7px); } 40% { transform: translate(9px, 11px); } 55% { transform: translate(-6px, 4px); } 70% { transform: translate(4px, -4px); } 85% { transform: translate(-2px, 2px); } }
+.death.dz-lunge .dz-face { animation: dzLunge 0.26s cubic-bezier(0.7, 0, 1, 0.3) forwards; }
+@keyframes dzLunge { from { opacity: 1; transform: translate(-50%, -50%) scale(0.35); filter: drop-shadow(0 0 30px rgba(255, 40, 30, 0.55)) brightness(1); } to { opacity: 1; transform: translate(-50%, -40%) scale(7.5); filter: drop-shadow(0 0 60px rgba(255, 20, 10, 0.9)) brightness(1.35) contrast(1.3); } }
+.death.dz-lunge { animation: dzShake 0.6s 0.05s; }
+/* The instant it hits: a blinding white-red flash. */
+.death.dz-lunge::before { content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none; animation: dzHit 0.32s 0.2s both; }
+@keyframes dzHit { 0% { background: #fff; opacity: 0; } 8% { background: #fff; opacity: 0.95; } 30% { background: #ff1a0a; opacity: 0.8; } 100% { background: #3a0000; opacity: 0; } }
+@keyframes dzShake { 8% { transform: translate(-26px, 14px) rotate(-1deg); } 16% { transform: translate(24px, -18px) rotate(1deg); } 26% { transform: translate(-18px, -10px); } 36% { transform: translate(14px, 16px); } 50% { transform: translate(-9px, 6px); } 66% { transform: translate(6px, -5px); } 82% { transform: translate(-3px, 2px); } }
 .dz-cracks { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
 .dz-cracks path { fill: none; stroke: rgba(255, 245, 240, 0.9); stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6)); }
 .death.dz-crack .dz-cracks { opacity: 1; animation: dzCrackIn 0.18s; }
@@ -875,9 +878,9 @@ body.cb .needy-fig:not(.awake) .cb-awake, body.cb .cb-awake:empty { display: non
 .dz-words { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 16px; opacity: 0; }
 .dz-words h1 { font-family: var(--sc); font-size: clamp(2.2rem, 8vw, 4.8rem); color: #d81e18; letter-spacing: 0.06em; margin: 0; text-shadow: 0 0 34px rgba(255, 0, 0, 0.6), 0 3px 0 #2a0000; }
 .dz-words p { color: #e9c9c4; font-style: italic; font-size: 1.2rem; margin: 10px 0 0; }
-.death.dz-verdict .dz-words { animation: dzBleed 1.7s ease-out forwards; }
+.death.dz-verdict .dz-words { animation: dzBleed 1.1s ease-out forwards; }
 @keyframes dzBleed { from { opacity: 0; filter: blur(16px); transform: scale(1.18); } to { opacity: 1; filter: blur(0); transform: scale(1); } }
-.dz-skip { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: rgba(255, 255, 255, 0.4); font-family: var(--sc); font-size: 0.8rem; opacity: 0; transition: opacity 1s 0.8s; }
+.dz-skip { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: rgba(255, 255, 255, 0.4); font-family: var(--sc); font-size: 0.8rem; opacity: 0; transition: opacity 0.8s 0.4s; }
 .death.dz-verdict .dz-skip { opacity: 1; }
 .death.dz-out { opacity: 0; transition: opacity 0.45s; }
 body.dying .sound-ctl, body.dying .quit { visibility: hidden; }

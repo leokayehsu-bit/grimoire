@@ -1,5 +1,5 @@
 // When the spirit wins: the candles die, a red flicker shows its face, it lunges at the glass with a
-// scream, the screen cracks, and the verdict bleeds in. About five seconds; a click or key skips it.
+// scream, the screen cracks, and the verdict bleeds in. About four and a half seconds; a click skips it.
 (function (G) {
   'use strict';
   const { el } = G.util;
@@ -52,14 +52,14 @@
         removeEventListener('keydown', finish);
         resolve();
       };
-      // Stages, driven by classes so the CSS owns the look.
-      at(30, () => root.classList.add('dz-dark'));        // candles die
-      at(900, () => root.classList.add('dz-flicker'));    // red flicker, the face in the dark
-      at(1650, () => root.classList.add('dz-lunge'));     // it rushes the glass, screaming
-      at(2150, () => root.classList.add('dz-crack'));     // the glass breaks
-      at(2600, () => root.classList.add('dz-verdict'));   // the words bleed in
-      at(3200, () => { root.addEventListener('click', finish); addEventListener('keydown', finish); });
-      at(6200, finish);
+      // Stages, driven by classes so the CSS owns the look. The hit at 0.9 s lines up with audio.death().
+      at(10, () => root.classList.add('dz-dark'));        // candles die
+      at(380, () => root.classList.add('dz-flicker'));    // red flicker, the face in the dark
+      at(900, () => root.classList.add('dz-lunge'));      // it rushes the glass, screaming
+      at(1250, () => root.classList.add('dz-crack'));     // the glass breaks
+      at(1650, () => root.classList.add('dz-verdict'));   // the words bleed in
+      at(1900, () => { root.addEventListener('click', finish); addEventListener('keydown', finish); });
+      at(4600, finish);
     });
   }
 

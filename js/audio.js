@@ -483,45 +483,92 @@
       this.noise(0.6, { vol: 0.04, freq: 700, q: 0.6, at: 0.08 });
     }
 
-    // The spirit kills you: a rumble in the dark, silence, then a scream rushing at the glass,
-    // a sub-bass hit and shattering, and a long dying echo.
+    // A hard-clipping distortion stage (shared), for the screams.
+    distortion() {
+      if (this.dist) return this.dist;
+      const ws = this.ctx.createWaveShaper(), n = 2048, curve = new Float32Array(n), k = 60;
+      for (let i = 0; i < n; i++) {
+        const x = (i * 2) / n - 1;
+        curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+      }
+      ws.curve = curve;
+      ws.oversample = '4x';
+      const trim = this.ctx.createGain();
+      trim.gain.value = 0.55;
+      ws.connect(trim).connect(this.sfx);
+      this.dist = ws;
+      return ws;
+    }
+
+    // One voice of the jumpscare: an oscillator with a pitch path, a filter and an envelope, into `dest`.
+    shriek(type, when, path, { vol, filter, q = 1, dur, dest }) {
+      const o = this.ctx.createOscillator(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(path[0][1], when);
+      for (const [dt, hz] of path.slice(1)) o.frequency.exponentialRampToValueAtTime(hz, when + dt);
+      // A nervous vibrato makes it sound alive.
+      const lfo = this.ctx.createOscillator(), depth = this.ctx.createGain();
+      lfo.frequency.value = 11 + Math.random() * 6;
+      depth.gain.value = path[0][1] * 0.03;
+      lfo.connect(depth).connect(o.frequency);
+      f.type = 'bandpass';
+      f.frequency.value = filter;
+      f.Q.value = q;
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.exponentialRampToValueAtTime(vol, when + 0.012);
+      g.gain.setValueAtTime(vol, when + dur * 0.25);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+      o.connect(f).connect(g).connect(dest);
+      o.start(when);
+      lfo.start(when);
+      o.stop(when + dur + 0.05);
+      lfo.stop(when + dur + 0.05);
+    }
+
+    // The spirit kills you. A breath held in the dark; a rush of air that sucks inward; a split second of
+    // dead silence; then it hits at once — a distorted shrieking string cluster, a screaming voice,
+    // a sub-bass slam and a noise blast — and the glass shatters. Lines up with js/death.js (hit at 0.9 s).
     death() {
       if (!this.ctx) return;
-      this.stopScore(0.25);
-      const t = this.ctx.currentTime;
-      // 0–1.6 s: the room holds its breath — a low rumble swelling under a heartbeat that stops.
-      this.noise(1.6, { when: t, vol: 0.18, freq: 120, type: 'lowpass', attack: 1.2 });
-      [0, 0.55].forEach((d, k) => { this.tone(58, { when: t + d, dur: 0.2, vol: 0.35 - k * 0.1, slide: 44 }); this.tone(50, { when: t + d + 0.2, dur: 0.2, vol: 0.25 - k * 0.08, slide: 40 }); });
-      this.whisper(0.8);
-      // 1.65 s: the scream — rising detuned saws through a vowel-like filter, with a breath of noise.
-      const s = t + 1.65;
-      [[310, 1250], [327, 1310], [620, 2200]].forEach(([a, b]) => {
-        const o = this.ctx.createOscillator(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
-        o.type = 'sawtooth';
-        o.frequency.setValueAtTime(a, s);
-        o.frequency.exponentialRampToValueAtTime(b, s + 0.5);
-        o.frequency.exponentialRampToValueAtTime(b * 0.6, s + 1.4);
-        f.type = 'bandpass';
-        f.frequency.setValueAtTime(900, s);
-        f.frequency.exponentialRampToValueAtTime(2400, s + 0.5);
-        f.Q.value = 3;
-        g.gain.setValueAtTime(0.0001, s);
-        g.gain.exponentialRampToValueAtTime(0.16, s + 0.12);
-        g.gain.exponentialRampToValueAtTime(0.0001, s + 1.5);
-        o.connect(f).connect(g).connect(this.sfx);
-        o.start(s);
-        o.stop(s + 1.6);
-      });
-      this.noise(1.2, { when: s, vol: 0.3, freq: 1600, q: 1.2, sweep: 5200, attack: 0.08 });
-      // 2.15 s: impact and breaking glass.
-      const c = t + 2.15;
-      this.tone(42, { when: c, dur: 2.2, vol: 0.7, slide: 24, attack: 0.005 });
-      this.noise(0.6, { when: c, vol: 0.5, freq: 400, type: 'lowpass', sweep: 60, attack: 0.005 });
-      for (let k = 0; k < 9; k++) this.noise(0.25 + Math.random() * 0.4, { when: c + k * 0.05 + Math.random() * 0.06, vol: 0.12, freq: 4000 + Math.random() * 5000, q: 6, attack: 0.002 });
-      this.noise(1.5, { when: c, vol: 0.15, freq: 6000, type: 'highpass', attack: 0.005 });
-      // 2.6 s on: a dying chord and thunder far away.
-      [73.42, 77.78, 110, 155.56].forEach((f) => this.tone(f, { when: t + 2.6, type: 'sawtooth', dur: 3.4, vol: 0.05, attack: 0.3, slide: f * 0.7 }));
-      for (let k = 0; k < 4; k++) this.noise(1.4, { when: t + 2.9 + k * 0.6, vol: 0.18 - k * 0.04, freq: 220 - k * 30, type: 'lowpass', attack: 0.1 });
+      this.stopScore(0.12);
+      const t = this.ctx.currentTime, hit = t + 0.9, slam = t + 1.12;
+      const dist = this.distortion();
+      // 0–0.82 s: a heartbeat, a whisper and a reverse-swell rushing in, cut dead at 0.82.
+      this.tone(58, { when: t + 0.02, dur: 0.2, vol: 0.4, slide: 42 });
+      this.tone(50, { when: t + 0.24, dur: 0.2, vol: 0.3, slide: 40 });
+      this.whisper(0.9);
+      const swell = this.ctx.createBufferSource(), sf = this.ctx.createBiquadFilter(), sg = this.ctx.createGain();
+      swell.buffer = this.noiseBuf;
+      sf.type = 'bandpass';
+      sf.Q.value = 0.8;
+      sf.frequency.setValueAtTime(180, t);
+      sf.frequency.exponentialRampToValueAtTime(3800, t + 0.82);
+      sg.gain.setValueAtTime(0.0001, t);
+      sg.gain.exponentialRampToValueAtTime(0.32, t + 0.81);
+      sg.gain.setValueAtTime(0.0001, t + 0.82);
+      swell.connect(sf).connect(sg).connect(this.sfx);
+      swell.start(t, Math.random());
+      swell.stop(t + 0.85);
+      // 0.9 s: the shriek — six detuned saws in a high cluster, sliding up, through hard distortion.
+      for (const f of [1046, 1108, 1174, 1244, 1396, 1480]) {
+        this.shriek('sawtooth', hit, [[0, f * 0.92], [0.2, f * 1.12], [1.4, f * 0.85]], { vol: 0.09, filter: 2600, q: 0.6, dur: 1.6, dest: dist });
+      }
+      // …and a screaming voice: a falling-then-rising formant through the same distortion.
+      this.shriek('sawtooth', hit, [[0, 420], [0.18, 1350], [0.9, 980], [1.5, 520]], { vol: 0.32, filter: 1100, q: 2.5, dur: 1.6, dest: dist });
+      this.shriek('square', hit + 0.01, [[0, 840], [0.18, 2650], [1.2, 1500]], { vol: 0.1, filter: 2400, q: 3, dur: 1.3, dest: dist });
+      this.noise(0.9, { when: hit, vol: 0.28, freq: 3000, q: 1.2, sweep: 6000, attack: 0.008 });
+      // 1.12 s (the flash): sub-bass slam and a blast of noise.
+      this.tone(52, { when: slam, dur: 1.4, vol: 1, slide: 26, attack: 0.004 });
+      this.tone(104, { when: slam, dur: 0.5, vol: 0.4, slide: 50, attack: 0.004 });
+      this.noise(0.55, { when: slam, vol: 0.6, freq: 300, type: 'highpass', attack: 0.003 });
+      this.noise(0.9, { when: slam, vol: 0.45, freq: 500, type: 'lowpass', sweep: 50, attack: 0.003 });
+      // 1.25 s: the glass gives way.
+      const c = t + 1.25;
+      for (let k = 0; k < 12; k++) this.noise(0.2 + Math.random() * 0.45, { when: c + k * 0.035 + Math.random() * 0.05, vol: 0.14, freq: 3500 + Math.random() * 6000, q: 6, attack: 0.001 });
+      this.noise(1.4, { when: c, vol: 0.12, freq: 6500, type: 'highpass', attack: 0.004 });
+      // 1.6 s on: a low, dissonant ringing and thunder rolling away under the verdict.
+      [73.42, 77.78, 103.83, 155.56].forEach((f) => this.tone(f, { when: t + 1.6, type: 'sawtooth', dur: 3, vol: 0.05, attack: 0.15, slide: f * 0.7 }));
+      for (let k = 0; k < 3; k++) this.noise(1.3, { when: t + 1.9 + k * 0.55, vol: 0.18 - k * 0.05, freq: 220 - k * 40, type: 'lowpass', attack: 0.1 });
     }
 
     // Victory: the room exhales and a choir resolves to D major over a cascade of bells.
