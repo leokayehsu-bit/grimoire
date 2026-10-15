@@ -11,7 +11,8 @@
       this.seed = seed;
       this.edition = edition;
       this.difficulty = difficulty;
-      this.level = free ? G.levels.freeLevel(free.count, free.needy, free.upTo) : G.levels.get(level) || G.levels.get(1);
+      this.level = free ? G.levels.freeLevel(free.count, free.needy, free.upTo, free.curses) : G.levels.get(level) || G.levels.get(1);
+      this.curses = G.levels.cursesFor(this.level, difficulty, seed);
       this.rules = G.rules.build(edition);
       this.ctx = G.seance.generate(rng);
       this.plan = G.levels.plan(this.level, difficulty, rng);

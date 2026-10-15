@@ -34,33 +34,45 @@
     L(1, 'The Restless Library', 'Four relics while the doll whispers. Someone must always keep an ear on her.', 4, 360, 3, null, ['doll']),
 
     L(2, 'Through the Glass', 'The chapel mirror shows a word written backwards in the fog. Read it right to left.', 2, 240, 3, 'mirror'),
-    L(2, 'Reflections', 'Three relics under the chapel windows.', 3, 270, 3),
+    L(2, 'Reflections', 'Three relics under the chapel windows — and the candles keep dying. Describe the table while you still can.', 3, 270, 3),
     L(2, 'Here Lies', 'A headstone stands where the altar should be. One word of its epitaph is wrong.', 2, 240, 3, 'headstone'),
     L(2, 'Vespers', 'Evening prayers, three relics, and the doll is back.', 3, 300, 3, null, ['doll']),
     L(2, "The Seer's Ball", 'A crystal ball swirls through colours. Watch which colour comes first and which comes last.', 2, 240, 3, 'crystal'),
-    L(2, 'Stained Glass', 'Four relics. Two mistakes. The saints in the windows are counting.', 4, 330, 2),
+    L(2, 'Stained Glass', 'Four relics. Two mistakes. Something in the chapel keeps turning the pages of your book.', 4, 330, 2),
     L(2, 'Lamplighter', 'An old lantern gutters and changes colour. Tend its flame before it goes out.', 2, 270, 3, 'lantern', ['lantern']),
     L(2, 'Midnight Mass', 'Four relics, the doll and the lantern all at once. Divide and conquer.', 4, 390, 3, null, ['doll', 'lantern']),
 
     L(3, 'The Gramophone', 'A gramophone with a record already on. Set the speed and drop the needle in the right groove.', 2, 240, 3, 'gramophone'),
-    L(3, 'Dust and Records', 'Three relics among the trunks and sheets.', 3, 270, 3),
+    L(3, 'Dust and Records', 'An old dressing mirror leans over the table. Everything the Medium sees is backwards.', 3, 270, 3),
     L(3, 'The Pendulum Swings', 'A dowsing pendulum swings over a board. Watch the way it moves.', 2, 240, 3, 'pendulum'),
     L(3, 'Cobwebs', 'Four relics in the attic gloom.', 4, 330, 3),
     L(3, 'Knucklebones', 'Three carved bones, cast like dice. Keep one, and only one.', 2, 210, 3, 'knucklebones'),
-    L(3, 'Nobody Plays Up Here', 'Four relics, two mistakes, and the doll has followed you upstairs.', 4, 330, 2, null, ['doll']),
+    L(3, 'Nobody Plays Up Here', 'Four relics, two mistakes, and the doll has followed you upstairs. Something whispers lies to the Medium.', 4, 330, 2, null, ['doll']),
     L(3, 'Something at the Door', 'Someone is knocking at the attic door. Count the knocks and look at the light beneath it.', 2, 270, 3, 'door', ['door']),
     L(3, 'The Attic Wakes', 'Five relics, the lantern and the door. The whole attic is awake.', 5, 420, 3, null, ['lantern', 'door']),
 
     L(4, 'Nevermore', 'A raven waits on a coffin lid with something in its beak. It wants an offering.', 2, 240, 3, 'raven'),
-    L(4, 'Down the Stair', 'Four relics at the bottom of the crypt stair.', 4, 300, 3),
+    L(4, 'Down the Stair', 'Four relics at the bottom of the crypt stair, where no clock has ever ticked.', 4, 300, 3),
     L(4, 'Lines of Fate', "A pale hand rests on the table, palm up. Read its rings, its lines and its marks.", 2, 240, 3, 'palm'),
     L(4, 'Ossuary', 'Five relics among the bones, and the doll is singing.', 5, 390, 3, null, ['doll']),
     L(4, 'The Circle', 'A broken circle of salt. Seal its gaps in exactly the right order.', 2, 240, 3, 'salt'),
     L(4, 'Bitter Remedies', "The apothecary's shelf. Two ingredients, added in the right order, will quiet the spirit.", 2, 240, 3, 'apothecary'),
-    L(4, 'One Mistake', 'Four relics and a single offense allowed. Check everything twice.', 4, 300, 1),
+    L(4, 'In the Dark', 'The last candle in the crypt is guttering out. Four relics, and only a pool of light to find them by.', 4, 330, 2),
     L(4, 'The Last Séance', 'Six relics. The doll, the lantern and the door. Everything you have learned, all at once.', 6, 480, 3, null, ['doll', 'lantern', 'door']),
   ];
-  LEVELS.forEach((lv, i) => { lv.n = i + 1; });
+  LEVELS.forEach((lv, i) => { lv.n = i + 1; lv.curses = []; lv.curseIntro = null; });
+
+  // Curses arrive after the Library: each is introduced alone, then mixed into later levels.
+  const CURSE_LEVELS = {
+    18: ['blackout'], 20: ['blackout'], 22: ['poltergeist'], 24: ['blackout', 'poltergeist'],
+    26: ['mirror'], 28: ['poltergeist'], 30: ['lies'], 32: ['mirror', 'blackout'],
+    34: ['silent'], 36: ['lies', 'poltergeist'], 39: ['darkness'], 40: ['poltergeist', 'lies', 'darkness'],
+  };
+  const CURSE_INTRO = { blackout: 18, poltergeist: 22, mirror: 26, lies: 30, silent: 34, darkness: 39 };
+  for (const [n, list] of Object.entries(CURSE_LEVELS)) LEVELS[n - 1].curses = list;
+  for (const [id, n] of Object.entries(CURSE_INTRO)) LEVELS[n - 1].curseIntro = id;
+  const CURSE_ORDER = Object.keys(CURSE_INTRO).sort((a, b) => CURSE_INTRO[a] - CURSE_INTRO[b]);
+  const cursesKnown = (upTo) => CURSE_ORDER.filter((id) => CURSE_INTRO[id] <= upTo);
 
   // Book order = the order relics are introduced. Every relic must be introduced exactly once.
   const INTRO = LEVELS.filter((lv) => lv.intro).map((lv) => lv.intro);
@@ -86,7 +98,7 @@
   }
 
   // A free séance draws on everything introduced up to the host's furthest open level.
-  function freeLevel(count, needyCount, upTo) {
+  function freeLevel(count, needyCount, upTo, curseCount = 0) {
     const avail = book(upTo);
     const cleansable = avail.filter((id) => !isNeedy(id));
     const needyAvail = avail.filter(isNeedy);
@@ -96,7 +108,22 @@
       n: 0, free: true, chapter: -1, name: 'Free Séance',
       desc: 'Any relics you have met so far, drawn at random.',
       count: c, time: round15(60 + 70 * c + 30 * nd.length), offenses: 3, intro: null, needy: nd, bookUpTo: upTo,
+      curses: [], freeCurses: Math.max(0, Math.min(curseCount, cursesKnown(upTo).length)), curseIntro: null,
     };
+  }
+
+  // The curses haunting a séance: the level's own (or random ones you've met, for a free séance),
+  // plus one more on Damned. Chosen from the seed, so the Medium and the Scholars always agree.
+  function cursesFor(lv, difficulty, seed) {
+    const known = cursesKnown(lv.free ? lv.bookUpTo : lv.n);
+    const pick = (list, salt) => list[G.util.hash(`curse/${seed}/${salt}`) % list.length];
+    const out = lv.free ? [] : lv.curses.slice();
+    for (let k = 0; k < (lv.freeCurses || 0); k++) out.push(pick(known.filter((id) => !out.includes(id)), 'free' + k));
+    if (difficulty === 'damned') {
+      const extra = known.filter((id) => !out.includes(id));
+      if (extra.length) out.push(pick(extra, 'damned'));
+    }
+    return out;
   }
 
   // What a level looks like at a difficulty: the numbers shown on its card.
@@ -172,5 +199,5 @@
 
   function get(n) { return LEVELS[n - 1] || null; }
 
-  G.levels = { CHAPTERS, LEVELS, INTRO, introLevel, DIFFICULTY, DIFF_ORDER, book, freeLevel, terms, plan, progress, get, round15, rating, fastTime };
+  G.levels = { CHAPTERS, LEVELS, INTRO, introLevel, DIFFICULTY, DIFF_ORDER, book, freeLevel, terms, plan, progress, get, round15, rating, fastTime, cursesFor, cursesKnown, CURSE_INTRO, CURSE_ORDER };
 })(globalThis.GR = globalThis.GR || {});

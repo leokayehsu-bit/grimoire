@@ -379,6 +379,9 @@
         const avail = G.levels.book(st.upTo);
         fillSelect($('#in-free-count'), Array.from({ length: Math.min(6, avail.filter((id) => !G.relics[id].needy).length) }, (_, i) => i + 1), st.free.count, (n) => `${n} relic${n === 1 ? '' : 's'}`);
         fillSelect($('#in-free-needy'), Array.from({ length: avail.filter((id) => G.relics[id].needy).length + 1 }, (_, i) => i), st.free.needy, (n) => (n ? `${n} to soothe` : 'None'));
+        const known = G.levels.cursesKnown(st.upTo).length;
+        $('#free-curse-field').classList.toggle('hidden', !known);
+        fillSelect($('#in-free-curses'), Array.from({ length: Math.min(2, known) + 1 }, (_, i) => i), st.free.curses || 0, (n) => (n ? `${n} at random` : 'None'));
       }
       const ed = $('#in-edition');
       if (document.activeElement !== ed) ed.value = st.edition;
@@ -424,7 +427,7 @@
   }
 
   function currentLevel(st) {
-    return st.free ? G.levels.freeLevel(st.free.count, st.free.needy, st.upTo) : G.levels.get(st.level);
+    return st.free ? G.levels.freeLevel(st.free.count, st.free.needy, st.upTo, st.free.curses || 0) : G.levels.get(st.level);
   }
 
   // The card for the chosen level, at the chosen difficulty: name, story, and its terms.
@@ -439,13 +442,23 @@
       <h3>${esc(lv.name)}</h3>
       <p class="lc-desc">${esc(lv.desc)}</p>
       ${lv.intro ? `<p class="lc-new">✦ New grimoire page: <b>${G.relics[lv.intro].title}</b></p>` : ''}
+      ${lv.curseIntro ? `<p class="lc-curse">☠ New curse: <b>${G.CURSES[lv.curseIntro].name}</b> — ${esc(G.CURSES[lv.curseIntro].desc)}</p>` : ''}
       <dl class="lc-terms">
-        <div><dt>Relics to cleanse</dt><dd>${lv.count}</dd></div>${needy}
+        <div><dt>Relics to cleanse</dt><dd>${lv.count}</dd></div>${needy}${curseTerms(lv, st.difficulty)}
         <div><dt>Time limit</dt><dd>${fmt(t.time)}</dd></div>
         <div><dt>Offenses allowed</dt><dd>${t.offenses}</dd></div>
         <div><dt>Difficulty</dt><dd>${d.label}${t.smudged ? ' · smudged ink' : ''}</dd></div>
       </dl>
       ${lv.free ? '' : bestLine(lv, st.difficulty)}`;
+  }
+
+  // The level's curses on its card. Damned adds one more, chosen when the séance begins.
+  function curseTerms(lv, difficulty) {
+    const names = lv.curses.map((id) => G.CURSES[id].name);
+    if (lv.freeCurses) names.push(`${lv.freeCurses} at random`);
+    const extra = difficulty === 'damned' && G.levels.cursesKnown(lv.free ? lv.bookUpTo : lv.n).length > lv.curses.length + (lv.freeCurses || 0);
+    if (extra) names.push('+1 (Damned)');
+    return names.length ? `<div class="lc-cursed"><dt>Curses</dt><dd>${names.join(', ')}</dd></div>` : '';
   }
 
   // Three-candle target for a level at a difficulty, and this browser's best there.
@@ -536,12 +549,14 @@
         if (acc >= 0.5) { acc = 0; sendStatus(); }
       }, 100);
     } else {
-      const lv = m.free ? G.levels.freeLevel(m.free.count, m.free.needy, m.free.upTo) : G.levels.get(m.level);
+      const lv = m.free ? G.levels.freeLevel(m.free.count, m.free.needy, m.free.upTo, m.free.curses || 0) : G.levels.get(m.level);
       const t = G.levels.terms(lv, m.difficulty);
+      const upTo = lv.free ? lv.bookUpTo : lv.n;
       const banner = `<span class="cap">${lv.free ? 'Free séance' : 'Level ' + lv.n}</span> <b>${esc(lv.name)}</b>
         <span class="lb-terms">${G.levels.DIFFICULTY[m.difficulty].label} · ${fmt(t.time)} · ${t.offenses} offense${t.offenses === 1 ? '' : 's'}${t.smudged ? ' · smudged ink' : ''}</span>`;
       S.view = G.views.grimoire($('#screen-scholar'), G.rules.build(m.edition), {
-        smudged: t.smudged, pages: G.levels.book(lv.free ? lv.bookUpTo : lv.n), fresh: lv.intro ? [lv.intro] : [], banner,
+        smudged: t.smudged, pages: G.levels.book(upTo), fresh: [lv.intro, lv.curseIntro].filter(Boolean), banner,
+        curses: G.levels.cursesKnown(upTo), activeCurses: G.levels.cursesFor(lv, m.difficulty, m.seed),
       });
       show('scholar');
     }
@@ -576,12 +591,24 @@
     'medium-left': ['The circle is broken.', 'The Medium fled the séance.'],
   };
 
+  // A séance ends. If the spirit won, everyone watches it kill them first (over the frozen table).
   function endRound(m) {
-    stopRound();
+    if (S.ending) return;
+    const dramatic = m.result === 'lose' && (m.reason === 'wrath' || m.reason === 'strikes');
     S.current = null;
+    clearInterval(S.loop);
+    S.loop = null;
+    if (!dramatic) { finishRound(m, false); return; }
+    S.ending = true;
+    G.death.play({ reason: m.reason, audio }).then(() => { S.ending = false; finishRound(m, true); });
+  }
+
+  function finishRound(m, dramatic) {
+    stopRound();
     audio.stopAmbience();
-    if (m.result === 'win') audio.win(); else audio.lose();
+    if (m.result === 'win') audio.win(); else if (!dramatic) audio.lose();
     const [head, text] = END_TEXT[m.reason] || END_TEXT.wrath;
+    $('#screen-end').classList.toggle('slain', !!dramatic);
     $('#end-title').textContent = head;
     $('#end-title').className = m.result === 'win' ? 'win' : 'lose';
     $('#end-text').textContent = text;
@@ -665,7 +692,8 @@
     const root = el('div');
     root.id = 'print-root';
     document.body.append(bar, root);
-    G.views.printBook(root, G.rules.build(edition), { pages, smudged: params.has('smudged') && !only, upTo: all || only ? 0 : upTo, only: !!only });
+    const curses = only ? [] : all ? G.levels.CURSE_ORDER : G.levels.cursesKnown(upTo);
+    G.views.printBook(root, G.rules.build(edition), { pages, smudged: params.has('smudged') && !only, upTo: all || only ? 0 : upTo, only: !!only, curses });
     document.title = `Grimoire — edition ${edition}`;
     if (!params.has('noauto')) (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(() => window.print(), 500));
   }
@@ -775,6 +803,7 @@
     });
     $('#in-free-count').addEventListener('change', (e) => hostSetting('free', Object.assign({}, S.settings.free, { count: +e.target.value })));
     $('#in-free-needy').addEventListener('change', (e) => hostSetting('free', Object.assign({}, S.settings.free, { needy: +e.target.value })));
+    $('#in-free-curses').addEventListener('change', (e) => hostSetting('free', Object.assign({}, S.settings.free, { curses: +e.target.value })));
     $('#btn-next').addEventListener('click', () => {
       if (!S.isHost || !S.nextLevel) return;
       S.settings = Object.assign({}, S.settings, { level: S.nextLevel, free: null });

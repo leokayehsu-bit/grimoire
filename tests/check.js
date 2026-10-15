@@ -9,7 +9,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
 const RELIC_FILES = fs.readdirSync(path.join(ROOT, 'js/relics')).filter((f) => f.endsWith('.js')).map((f) => 'relics/' + f.slice(0, -3));
-const FILES = ['util', 'seance', 'kit', ...RELIC_FILES, 'rules', 'levels', 'game'];
+const FILES = ['util', 'seance', 'kit', ...RELIC_FILES, 'rules', 'curses', 'levels', 'game'];
 const sandbox = vm.createContext({ console });
 for (const f of FILES) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sandbox, { filename: f + '.js' });
 const GR = sandbox.GR;
@@ -58,6 +58,37 @@ for (const lv of LEVELS) {
   const R = (time, strikes) => GR.levels.rating(lv, 'vengeful', { time, strikes });
   if (R(lim * 0.6, 0) !== 3 || R(lim * 0.6 + 1, 0) !== 2 || R(10, 1) !== 2 || R(lim, 2) !== 1) fail('candle ratings are wrong');
 }
+// Curses: each introduced once, after the Library, never used before its introduction, and the same
+// séance always gets the same curses (so the Medium and the Scholars agree).
+{
+  const CI = GR.levels.CURSE_INTRO;
+  for (const id of Object.keys(GR.CURSES)) {
+    const n = LEVELS.filter((lv) => lv.curseIntro === id).length;
+    if (n !== 1 || CI[id] == null) fail(`curse ${id} is introduced ${n} times`);
+    if (LEVELS[CI[id] - 1].chapter < 2) fail(`curse ${id} arrives before the Library is finished`);
+  }
+  for (const lv of LEVELS) {
+    for (const c of lv.curses) if (!GR.CURSES[c] || CI[c] > lv.n) fail(`level ${lv.n} uses curse ${c} before it is introduced`);
+    if (lv.curseIntro && !lv.curses.includes(lv.curseIntro)) fail(`level ${lv.n} introduces ${lv.curseIntro} without using it`);
+    for (const d of DIFF_ORDER) {
+      for (const seed of [1, 99, 123456]) {
+        const a = GR.levels.cursesFor(lv, d, seed), b = GR.levels.cursesFor(lv, d, seed);
+        if (a.join() !== b.join()) fail(`level ${lv.n}: curses are not deterministic`);
+        if (new Set(a).size !== a.length) fail(`level ${lv.n}: a curse appears twice`);
+        const known = GR.levels.cursesKnown(lv.n);
+        for (const c of a) if (!known.includes(c)) fail(`level ${lv.n} ${d}: ${c} has not been met yet`);
+        const want = lv.curses.length + (d === 'damned' && known.length > lv.curses.length ? 1 : 0);
+        if (a.length !== want) fail(`level ${lv.n} ${d}: ${a.length} curses, expected ${want}`);
+      }
+    }
+  }
+  const free = GR.levels.freeLevel(3, 0, 40, 2);
+  const fc = GR.levels.cursesFor(free, 'damned', 7);
+  if (fc.length !== 3 || new Set(fc).size !== 3) fail('a free séance with 2 curses on Damned should have 3 different curses');
+  if (GR.levels.cursesFor(GR.levels.freeLevel(3, 0, 10, 2), 'damned', 7).length) fail('no curses before they are met');
+  if (/undefined|NaN/.test(GR.curseFx.page(GR.levels.CURSE_ORDER, ['blackout']))) fail('the Curses page has a broken value');
+}
+
 // Epitaphs must stay distinguishable with one word changed.
 {
   const E = GR.relics.headstone.EPITAPHS;

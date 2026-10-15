@@ -58,6 +58,7 @@
     const sb = statusBar();
     root.appendChild(sb.el);
     root.appendChild(el('p', 'role-hint', 'You are the Medium. Describe everything you see — you may not read the grimoire.'));
+    if (game.curses.length) root.appendChild(curseChips(game.curses));
     root.appendChild(contextStrip(game.ctx));
     const grid = el('div', 'relics');
     root.appendChild(grid);
@@ -79,6 +80,8 @@
       return { panel, h: r.def.render(body, r.state, api) || {} };
     });
 
+    const fx = G.curseFx.medium(root, game.curses, { audio, game, rng: G.util.makeRng((game.seed ^ 0x5EA7) >>> 0) });
+
     game.on('strike', () => {
       audio.strike();
       root.classList.remove('shake');
@@ -95,8 +98,14 @@
         sb.update(game.status());
         handles.forEach((x) => x.h.update && x.h.update());
       },
-      destroy: () => { handles.forEach((x) => x.h.destroy && x.h.destroy()); root.innerHTML = ''; root.classList.remove('shake'); },
+      destroy: () => { fx.destroy(); handles.forEach((x) => x.h.destroy && x.h.destroy()); root.innerHTML = ''; root.classList.remove('shake'); },
     };
+  }
+
+  function curseChips(ids) {
+    const row = el('div', 'curse-row');
+    row.innerHTML = '<span class="label">Cursed</span>' + ids.map((id) => `<span class="curse-chip" title="${esc(G.CURSES[id].desc)}">${G.CURSES[id].glyph} ${G.CURSES[id].name}</span>`).join('');
+    return row;
   }
 
   // ---- Scholars -------------------------------------------------------------
@@ -128,7 +137,7 @@
 
   // The book itself: page tabs plus the open page. Shared by the séance and the study screen.
   // pages: relic ids in the book; locked: ids shown as locked tabs; fresh: ids marked New.
-  function book(rules, { pages = G.BOOK_ORDER, smudged = false, locked = [], fresh = [], startId = 'preface' } = {}) {
+  function book(rules, { pages = G.BOOK_ORDER, smudged = false, locked = [], fresh = [], startId = 'preface', curses = [], activeCurses = [] } = {}) {
     const wrap = el('div', 'book');
     const tabs = el('nav', 'tabs');
     const page = el('article', 'page');
@@ -136,6 +145,7 @@
 
     const sm = smudged ? G.rules.smudges(rules, pages) : null;
     const entries = [{ id: 'preface', title: 'Preface', html: () => preface(rules, sm) }]
+      .concat(curses.length ? [{ id: 'curses', title: 'Curses', html: () => G.curseFx.page(curses, activeCurses), fresh: activeCurses.some((c) => fresh.includes(c)) }] : [])
       .concat(pages.map((id) => ({ id, title: G.relics[id].title, html: () => G.rules.page(rules, id, sm), fresh: fresh.includes(id) })));
     const tabBtns = {};
     for (const p of entries) {
@@ -166,13 +176,15 @@
   }
 
   // The Scholars' screen during a séance. `level` adds a banner with its name and rules.
-  function grimoire(root, rules, { smudged = false, pages, fresh = [], banner = '' } = {}) {
+  function grimoire(root, rules, { smudged = false, pages, fresh = [], banner = '', curses = [], activeCurses = [] } = {}) {
     root.innerHTML = '';
     const sb = statusBar({ scholar: true });
     root.appendChild(sb.el);
     if (banner) { const b = el('div', 'level-banner'); b.innerHTML = banner; root.appendChild(b); }
-    const bk = book(rules, { pages, smudged, fresh });
+    if (activeCurses.length) root.appendChild(curseChips(activeCurses));
+    const bk = book(rules, { pages, smudged, fresh, curses, activeCurses });
     root.appendChild(bk.el);
+    const fx = G.curseFx.scholar(root, activeCurses, { audio: G.audio, book: bk, pages: (curses.length ? ['curses'] : []).concat(pages) });
 
     const flash = (cls) => { root.classList.remove(cls); void root.offsetWidth; root.classList.add(cls); };
     let last = null;
@@ -186,12 +198,12 @@
         }
         last = s;
       },
-      destroy: () => { root.innerHTML = ''; root.classList.remove('shake', 'blessed'); },
+      destroy: () => { fx.destroy(); root.innerHTML = ''; root.classList.remove('shake', 'blessed'); },
     };
   }
 
   // The grimoire laid out for paper: a cover with contents, then the preface and one relic per printed page.
-  function printBook(root, rules, { pages, smudged = false, upTo = 0, only = false }) {
+  function printBook(root, rules, { pages, smudged = false, upTo = 0, only = false, curses = [] }) {
     const sm = smudged ? G.rules.smudges(rules, pages) : null;
     if (only) {
       root.innerHTML = pages.map((id) => `<section class="print-sheet"><article class="page print"><h2>${G.relics[id].title}</h2>
@@ -209,6 +221,7 @@
         <p class="pc-rule">The Medium may not read this book. The Scholars may not look at the screen.</p>
       </section>
       <section class="print-sheet"><article class="page print"><h2>Preface</h2>${preface(rules, sm)}<p class="edition">${foot}</p></article></section>` +
+      (curses.length ? `<section class="print-sheet"><article class="page print"><h2>Curses</h2>${G.curseFx.page(curses)}<p class="edition">${foot}</p></article></section>` : '') +
       pages.map((id, k) => `<section class="print-sheet"><article class="page print"><h2><span class="pnum">${k + 1}.</span> ${G.relics[id].title}</h2>
         ${G.rules.page(rules, id, sm)}<p class="edition">${foot}</p></article></section>`).join('');
   }
@@ -237,7 +250,7 @@
       const ed = Math.max(1, Math.min(999, Math.round(+edIn.value) || 1));
       edIn.value = ed;
       const keep = bk ? bk.current() : 'preface';
-      bk = book(G.rules.build(ed), { pages, smudged: smIn.checked, locked, startId: keep });
+      bk = book(G.rules.build(ed), { pages, smudged: smIn.checked, locked, startId: keep, curses: G.levels.cursesKnown(upTo) });
       slot.replaceChildren(bk.el);
       if (onChange) onChange({ edition: ed, smudged: smIn.checked });
     }

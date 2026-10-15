@@ -255,6 +255,59 @@
       this.whisper(0.5 + 0.3 * level);
     }
 
+    // Blackout curse: every flame snuffed at once, then a match relights them.
+    snuff() {
+      this.noise(0.6, { vol: 0.18, freq: 900, q: 0.5, sweep: 200, attack: 0.01 });
+      this.tone(220, { type: 'triangle', dur: 0.5, vol: 0.05, slide: 90 });
+      this.whisper(0.4);
+    }
+
+    relight() {
+      this.noise(0.3, { vol: 0.1, freq: 3200, type: 'highpass', attack: 0.01 });
+      this.noise(0.6, { vol: 0.04, freq: 700, q: 0.6, at: 0.08 });
+    }
+
+    // The spirit kills you: a rumble in the dark, silence, then a scream rushing at the glass,
+    // a sub-bass hit and shattering, and a long dying echo.
+    death() {
+      if (!this.ctx) return;
+      this.stopScore(0.25);
+      const t = this.ctx.currentTime;
+      // 0–1.6 s: the room holds its breath — a low rumble swelling under a heartbeat that stops.
+      this.noise(1.6, { when: t, vol: 0.18, freq: 120, type: 'lowpass', attack: 1.2 });
+      [0, 0.55].forEach((d, k) => { this.tone(58, { when: t + d, dur: 0.2, vol: 0.35 - k * 0.1, slide: 44 }); this.tone(50, { when: t + d + 0.2, dur: 0.2, vol: 0.25 - k * 0.08, slide: 40 }); });
+      this.whisper(0.8);
+      // 1.65 s: the scream — rising detuned saws through a vowel-like filter, with a breath of noise.
+      const s = t + 1.65;
+      [[310, 1250], [327, 1310], [620, 2200]].forEach(([a, b]) => {
+        const o = this.ctx.createOscillator(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(a, s);
+        o.frequency.exponentialRampToValueAtTime(b, s + 0.5);
+        o.frequency.exponentialRampToValueAtTime(b * 0.6, s + 1.4);
+        f.type = 'bandpass';
+        f.frequency.setValueAtTime(900, s);
+        f.frequency.exponentialRampToValueAtTime(2400, s + 0.5);
+        f.Q.value = 3;
+        g.gain.setValueAtTime(0.0001, s);
+        g.gain.exponentialRampToValueAtTime(0.16, s + 0.12);
+        g.gain.exponentialRampToValueAtTime(0.0001, s + 1.5);
+        o.connect(f).connect(g).connect(this.sfx);
+        o.start(s);
+        o.stop(s + 1.6);
+      });
+      this.noise(1.2, { when: s, vol: 0.3, freq: 1600, q: 1.2, sweep: 5200, attack: 0.08 });
+      // 2.15 s: impact and breaking glass.
+      const c = t + 2.15;
+      this.tone(42, { when: c, dur: 2.2, vol: 0.7, slide: 24, attack: 0.005 });
+      this.noise(0.6, { when: c, vol: 0.5, freq: 400, type: 'lowpass', sweep: 60, attack: 0.005 });
+      for (let k = 0; k < 9; k++) this.noise(0.25 + Math.random() * 0.4, { when: c + k * 0.05 + Math.random() * 0.06, vol: 0.12, freq: 4000 + Math.random() * 5000, q: 6, attack: 0.002 });
+      this.noise(1.5, { when: c, vol: 0.15, freq: 6000, type: 'highpass', attack: 0.005 });
+      // 2.6 s on: a dying chord and thunder far away.
+      [73.42, 77.78, 110, 155.56].forEach((f) => this.tone(f, { when: t + 2.6, type: 'sawtooth', dur: 3.4, vol: 0.05, attack: 0.3, slide: f * 0.7 }));
+      for (let k = 0; k < 4; k++) this.noise(1.4, { when: t + 2.9 + k * 0.6, vol: 0.18 - k * 0.04, freq: 220 - k * 30, type: 'lowpass', attack: 0.1 });
+    }
+
     // Victory: the room exhales and a choir resolves to D major over a cascade of bells.
     win() {
       if (!this.ctx) return;

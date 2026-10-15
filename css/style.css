@@ -815,3 +815,71 @@ body.cb .needy-fig:not(.awake) .cb-awake, body.cb .cb-awake:empty { display: non
 .opt-row { display: flex !important; align-items: flex-start; gap: 8px; cursor: pointer; color: var(--ink) !important; border-top: 1px solid var(--line); padding-top: 10px; }
 .opt-row input { width: auto; margin-top: 3px; accent-color: var(--candle); }
 .opt-row small { display: block; color: var(--dim); font-family: var(--serif); font-size: 0.75rem; letter-spacing: 0; }
+
+/* ======================================================================
+   Curses
+   ====================================================================== */
+.curse-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; }
+.curse-chip { font-family: var(--sc); font-size: 0.85rem; color: #f1c9c4; border: 1px solid rgba(208, 72, 63, 0.6); background: rgba(208, 72, 63, 0.12); border-radius: 20px; padding: 2px 10px; cursor: help; }
+.lc-curse { color: #f1b4ad; margin: 0 0 8px; font-size: 0.92rem; }
+.lc-cursed dd { color: #f1b4ad; }
+.curse-active { font-family: var(--serif); font-size: 0.75rem; color: #7a1f12; border: 1px solid #7a1f12; border-radius: 10px; padding: 0 6px; margin-left: 6px; vertical-align: middle; }
+
+/* Looking-Glass: the table and its surroundings are reflected (clicks still land where they look). */
+.curse-mirror .relics, .curse-mirror .seance-ctx { transform: scaleX(-1); }
+
+/* Silent Hour: no clock, no meter for the Medium. */
+.curse-silent .status-bar .wrath { visibility: hidden; }
+
+/* Blackout: every candle dies for a few seconds. */
+.curse-blackout { position: fixed; inset: 0; z-index: 40; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.6s; display: grid; place-items: center; }
+.curse-blackout span { color: rgba(200, 190, 210, 0.3); font-family: var(--sc); font-style: italic; letter-spacing: 0.1em; }
+.curse-blackout.on { opacity: 0.985; transition: opacity 0.12s; }
+
+/* Darkness: only a pool of light around the Medium's hand. The status bar stays lit above it. */
+.curse-darkness { position: fixed; inset: 0; z-index: 35; pointer-events: none;
+  background: radial-gradient(circle 160px at var(--x) var(--y), rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0.3) 55%, rgba(0, 0, 0, 0.975) 100%); }
+.curse-dark .status-bar { z-index: 36; }
+
+/* Lying Whispers and the Poltergeist's notes. */
+.curse-lie { position: fixed; z-index: 45; max-width: 60vw; font-style: italic; font-size: 1.3rem; color: rgba(255, 225, 220, 0.88); text-shadow: 0 0 12px rgba(208, 72, 63, 0.9), 0 0 2px #000; pointer-events: none; animation: lie 4.2s ease-in-out forwards; }
+@keyframes lie { 0% { opacity: 0; transform: translateY(10px); filter: blur(6px); } 15% { opacity: 1; filter: blur(0); } 80% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-20px); filter: blur(4px); } }
+.curse-flip { position: fixed; top: 30%; left: 0; right: 0; text-align: center; z-index: 45; font-family: var(--sc); font-size: 1.4rem; color: #f1d9d6; text-shadow: 0 0 18px rgba(208, 72, 63, 0.9); pointer-events: none; animation: lie 2.6s forwards; }
+
+/* ======================================================================
+   The spirit claims you
+   ====================================================================== */
+.death { position: fixed; inset: 0; z-index: 200; overflow: hidden; cursor: pointer; }
+.dz-black { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.85s ease-in; }
+.death.dz-dark .dz-black { opacity: 0.97; }
+.dz-red { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(170, 0, 12, 0.5), rgba(30, 0, 0, 0.92) 72%); }
+.death.dz-flicker .dz-red { animation: dzFlicker 0.75s steps(1) forwards; }
+@keyframes dzFlicker { 0% { opacity: 0.9; } 12% { opacity: 0; } 25% { opacity: 0.6; } 40% { opacity: 0; } 55% { opacity: 0.85; } 70% { opacity: 0.15; } 100% { opacity: 0.55; } }
+.dz-face { position: absolute; left: 50%; top: 52%; width: min(44vw, 270px); transform: translate(-50%, -50%) scale(0.35); opacity: 0; filter: drop-shadow(0 0 30px rgba(255, 40, 30, 0.55)); }
+.dz-face .dz-hair { fill: #0b080e; }
+.dz-face .dz-pupil { fill: #ffd8c8; }
+.death.dz-flicker .dz-face { animation: dzFaceFlicker 0.75s steps(1) forwards; }
+@keyframes dzFaceFlicker { 0% { opacity: 0.8; } 12% { opacity: 0; } 25% { opacity: 0.45; } 40% { opacity: 0; } 55% { opacity: 0.95; } 70% { opacity: 0.3; } 100% { opacity: 0.9; } }
+.death.dz-lunge .dz-face { animation: dzLunge 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards; }
+@keyframes dzLunge { from { opacity: 0.9; transform: translate(-50%, -50%) scale(0.35); } to { opacity: 1; transform: translate(-50%, -42%) scale(6); } }
+.death.dz-lunge { animation: dzShake 0.55s 0.15s; }
+@keyframes dzShake { 10% { transform: translate(-16px, 9px); } 20% { transform: translate(14px, -11px); } 30% { transform: translate(-11px, -7px); } 40% { transform: translate(9px, 11px); } 55% { transform: translate(-6px, 4px); } 70% { transform: translate(4px, -4px); } 85% { transform: translate(-2px, 2px); } }
+.dz-cracks { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+.dz-cracks path { fill: none; stroke: rgba(255, 245, 240, 0.9); stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6)); }
+.death.dz-crack .dz-cracks { opacity: 1; animation: dzCrackIn 0.18s; }
+@keyframes dzCrackIn { 0% { opacity: 0; } 30% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+.death.dz-crack .dz-face { animation: none; opacity: 0; transition: opacity 0.25s; transform: translate(-50%, -42%) scale(6); }
+.death.dz-crack .dz-red { animation: none; opacity: 1; background: radial-gradient(ellipse at center, rgba(110, 0, 8, 0.8), #070002 75%); }
+.death.dz-crack::after { content: ''; position: absolute; inset: 0; background: #fff; animation: dzFlash 0.35s forwards; pointer-events: none; }
+@keyframes dzFlash { from { opacity: 0.85; } to { opacity: 0; } }
+.dz-words { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 16px; opacity: 0; }
+.dz-words h1 { font-family: var(--sc); font-size: clamp(2.2rem, 8vw, 4.8rem); color: #d81e18; letter-spacing: 0.06em; margin: 0; text-shadow: 0 0 34px rgba(255, 0, 0, 0.6), 0 3px 0 #2a0000; }
+.dz-words p { color: #e9c9c4; font-style: italic; font-size: 1.2rem; margin: 10px 0 0; }
+.death.dz-verdict .dz-words { animation: dzBleed 1.7s ease-out forwards; }
+@keyframes dzBleed { from { opacity: 0; filter: blur(16px); transform: scale(1.18); } to { opacity: 1; filter: blur(0); transform: scale(1); } }
+.dz-skip { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; color: rgba(255, 255, 255, 0.4); font-family: var(--sc); font-size: 0.8rem; opacity: 0; transition: opacity 1s 0.8s; }
+.death.dz-verdict .dz-skip { opacity: 1; }
+.death.dz-out { opacity: 0; transition: opacity 0.45s; }
+body.dying .sound-ctl, body.dying .quit { visibility: hidden; }
+#screen-end.slain .end { border-color: rgba(208, 72, 63, 0.6); box-shadow: 0 0 60px rgba(160, 0, 10, 0.35), 0 10px 40px rgba(0, 0, 0, 0.5); }
+#screen-end.slain #end-title { font-size: clamp(2.1rem, 7vw, 2.9rem); }

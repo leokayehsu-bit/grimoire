@@ -53,6 +53,23 @@ Any level can be played at any difficulty:
 
 Progress is saved in each browser (`localStorage` key `grimoire.progress.v1`). Clearing a level on any difficulty opens the next; everyone in a winning room gets the credit. `?unlockall` opens every level for testing without saving. **Free séance** draws random relics from everything you have met.
 
+## Curses
+
+Curses (`js/curses.js`) change what players can see, never the rules. They arrive after the Library, each introduced alone and then mixed into later levels (`CURSE_LEVELS` in `js/levels.js`):
+
+| Level | Curse | Affects | Effect |
+| --- | --- | --- | --- |
+| 18 | Blackout | Medium | the room goes black for a few seconds now and then |
+| 22 | Poltergeist | Scholars | the grimoire flips to a random page |
+| 26 | Looking-Glass | Medium | the table is mirrored; the book still means the real left |
+| 30 | Lying Whispers | Medium | false instructions drift across the table |
+| 34 | Silent Hour | Medium | the Medium's timer and wrath meter vanish |
+| 39 | Darkness | Medium | only a pool of light follows the Medium's hand |
+
+Damned adds one more curse you have met; free séances can add 0–2 at random. `G.levels.cursesFor(level, difficulty, seed)` decides them from the séance seed, so every player agrees. The grimoire has a Curses page.
+
+**Losing:** when the spirit wins (wrath or offenses), everyone watches it claim them — candles die, its face flickers in red, lunges at the glass with a scream, the glass cracks, and the verdict bleeds in (`js/death.js`, `audio.death()`), before the end screen. A click skips it.
+
 ## Relics
 
 Cleansed: Ritual Candles, Tarot Spread, Spirit Board, Haunted Dollhouse, Locked Diary, Music Box, Spirit Bell, Haunted Mirror, Weathered Headstone, Crystal Ball, Gramophone, Pendulum, Knucklebones, The Raven, Palm Reading, Salt Circle (multi-step), Apothecary Shelf (multi-step).
